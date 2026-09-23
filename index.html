@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Копилка — учёт денег</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    color-scheme: light dark; box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+    --bg:#F1F3EE; --surface:#FFFFFF; --surface-2:#F7F8F4;
+    --ink:#1A201C; --ink-soft:#5C665F; --ink-faint:#8E9990;
+    --line:#E2E6DE; --line-soft:#EDF0EA;
+    --green:#2F7D5B; --green-ink:#215B42; --green-soft:#E5F1EB;
+    --gold:#C88A22; --gold-soft:#F8ECD1;
+    --brick:#B8503E; --brick-soft:#F6E2DD;
+    --shadow:0 1px 2px rgba(26,32,28,.04), 0 8px 24px rgba(26,32,28,.06);
+    --radius:18px;
+    --sans:"Onest", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --display:"Unbounded", var(--sans);
+  }
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+    --bg:#12160F; --surface:#1B211A; --surface-2:#232A21;
+    --ink:#E9EEE6; --ink-soft:#9AA697; --ink-faint:#6E7A6C;
+    --line:#2B3328; --line-soft:#232B20;
+    --green:#54B187; --green-ink:#7FC9A4; --green-soft:#1D2B23;
+    --gold:#DDA94D; --gold-soft:#2C2716;
+    --brick:#D8715F; --brick-soft:#2E1E1A;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.35);
+  }}
+  :root[data-theme="dark"]{
+    --bg:#12160F; --surface:#1B211A; --surface-2:#232A21;
+    --ink:#E9EEE6; --ink-soft:#9AA697; --ink-faint:#6E7A6C;
+    --line:#2B3328; --line-soft:#232B20;
+    --green:#54B187; --green-ink:#7FC9A4; --green-soft:#1D2B23;
+    --gold:#DDA94D; --gold-soft:#2C2716;
+    --brick:#D8715F; --brick-soft:#2E1E1A;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.35);
+  }
+  *,*::before,*::after{box-sizing:inherit}
+  html,body{margin:0}
+  body{font-family:var(--sans); background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased; line-height:1.45; min-height:100dvh}
+  @media (prefers-reduced-motion: reduce){*{animation:none !important; transition:none !important}}
+  .wrap{max-width:920px; margin:0 auto; padding:16px 16px 120px}
+
+  header.app{position:sticky; top:env(safe-area-inset-top,0px); z-index:40; background:color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter:saturate(1.4) blur(10px); border-bottom:1px solid var(--line)}
+  .header-inner{max-width:920px; margin:0 auto; padding:14px 16px; display:flex; align-items:center; gap:12px}
+  .brand{display:flex; align-items:center; gap:10px; margin-right:auto; min-width:0}
+  .brand .coin{width:34px;height:34px;border-radius:10px;flex:none;background:radial-gradient(circle at 32% 30%, #F4D890, var(--gold) 70%);display:grid;place-items:center; color:#4a3405; font-family:var(--display); font-weight:700; font-size:17px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+  .brand h1{font-family:var(--display); font-weight:600; font-size:18px; margin:0; letter-spacing:-.01em}
+  .brand span{display:block; font-size:11px; color:var(--ink-faint); font-weight:500; margin-top:-2px}
+  .icon-btn{width:38px;height:38px;border-radius:11px;border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; flex:none; display:grid;place-items:center; font-size:17px; transition:background .15s}
+  .icon-btn:hover{background:var(--surface-2)}
+  .cur-select{height:38px; border-radius:11px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-family:var(--sans); font-size:14px; font-weight:600; padding:0 8px; cursor:pointer}
+
+  .view{display:none; animation:rise .25s ease both}
+  .view.active{display:block}
+  @keyframes rise{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+
+  /* home: total */
+  .home-total{text-align:center; margin:8px 0 18px}
+  .home-total .lab{font-size:13px; color:var(--ink-soft)}
+  .home-total .val{font-family:var(--display); font-weight:700; font-size:clamp(30px,8vw,42px); letter-spacing:-.02em; color:var(--gold); line-height:1.05; margin-top:2px}
+  .home-split{text-align:center; font-size:12.5px; color:var(--ink-soft); margin:-8px 0 16px}
+  .home-split b{color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums}
+  .quick-actions{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:2px 0 20px}
+  .qbtn{border:none; border-radius:16px; padding:16px 14px; cursor:pointer; font-family:var(--sans); font-weight:700; font-size:15px; color:#fff; display:flex; flex-direction:column; align-items:center; gap:5px; transition:transform .1s, filter .15s; box-shadow:var(--shadow)}
+  .qbtn:hover{filter:brightness(1.05)} .qbtn:active{transform:scale(.97)}
+  .qbtn .qic{font-size:23px}
+  .qbtn.earn{background:linear-gradient(135deg, var(--green), var(--green-ink))}
+  .qbtn.spend{background:linear-gradient(135deg, #C96A57, var(--brick))}
+  .dist-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line-soft)}
+  .dist-name{flex:1; min-width:0}
+  .dist-name .dn{font-weight:600; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .dist-sub{font-size:11.5px; color:var(--ink-faint)}
+  .dist-inp{width:108px; flex:none; font-family:var(--sans); font-size:16px; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; outline:none; text-align:right}
+  .dist-inp:focus{border-color:var(--green); box-shadow:0 0 0 3px var(--green-soft)}
+  .dist-remain{text-align:center; font-size:13px; color:var(--ink-soft); font-weight:600; margin-top:14px}
+  .dist-remain.over{color:var(--brick)}
+  .dist-remain.ok{color:var(--green)}
+  .dist-ic{width:10px; height:10px; border-radius:50%; background:var(--gold); flex:none}
+  .chart-card{max-width:440px; margin:0 auto 16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 16px}
+  .chart-title{font-family:var(--display); font-weight:600; font-size:15px; text-align:center; margin:0 0 12px}
+  .chart-wrap{display:flex; align-items:center; gap:18px; flex-wrap:wrap; justify-content:center}
+  .donut{width:140px; height:140px; flex:none}
+  .donut-total{font-family:var(--display); font-weight:700; font-size:15px; fill:var(--ink)}
+  .donut-cap{font-size:8.5px; fill:var(--ink-faint); letter-spacing:.1em}
+  .legend{display:flex; flex-direction:column; gap:8px; min-width:160px; flex:1}
+  .leg-row{display:flex; align-items:center; gap:8px; font-size:13px; min-width:0}
+  .leg-dot{width:11px; height:11px; border-radius:3px; flex:none}
+  .leg-name{color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .leg-val{margin-left:auto; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap}
+  .leg-pct{color:var(--ink-faint); font-size:11.5px; min-width:34px; text-align:right}
+
+  /* catalog bar (траты | цели) */
+  .catalog{display:grid; grid-template-columns:1fr 1fr; border:1.6px solid var(--line); border-radius:18px; overflow:hidden; background:var(--surface); box-shadow:var(--shadow); margin-bottom:8px}
+  .cat-tile{border:none; background:none; cursor:pointer; padding:16px 16px 15px; text-align:left; display:flex; flex-direction:column; gap:3px; transition:background .15s; font-family:var(--sans); color:var(--ink)}
+  .cat-tile:first-child{border-right:1.6px solid var(--line)}
+  .cat-tile:hover{background:var(--surface-2)}
+  .cat-tile:active{background:var(--surface-2)}
+  .ct-top{display:flex; align-items:center; gap:8px}
+  .ct-ic{font-size:20px}
+  .ct-name{font-family:var(--display); font-weight:600; font-size:16px}
+  .ct-val{font-weight:700; font-size:16px; margin-top:4px; font-variant-numeric:tabular-nums}
+  .ct-sub{font-size:12px; color:var(--ink-faint)}
+  .cat-tile.exp .ct-val{color:var(--brick)}
+  .cat-tile.goal .ct-val{color:var(--green)}
+  .cat-arrow{margin-left:auto; color:var(--ink-faint); font-size:15px}
+
+  .sec-head{display:flex; align-items:baseline; gap:10px; margin:26px 2px 12px}
+  .sec-head h2{font-family:var(--display); font-weight:600; font-size:17px; margin:0; letter-spacing:-.01em}
+  .sec-head .count{font-size:13px; color:var(--ink-faint); font-weight:500}
+  .sec-head .add{margin-left:auto}
+
+  .btn{font-family:var(--sans); font-weight:600; font-size:14px; cursor:pointer; border-radius:11px; padding:10px 16px; border:1px solid transparent; transition:transform .1s, filter .15s, background .15s; display:inline-flex; align-items:center; gap:7px}
+  .btn:active{transform:scale(.97)}
+  .btn.primary{background:var(--green); color:#fff} .btn.primary:hover{filter:brightness(1.06)}
+  .btn.ghost{background:var(--surface); color:var(--ink); border-color:var(--line)} .btn.ghost:hover{background:var(--surface-2)}
+  .btn.sm{padding:7px 12px; font-size:13px; border-radius:9px}
+  .btn.block{width:100%; justify-content:center}
+  .btn.danger{background:var(--brick-soft); color:var(--brick)}
+
+  /* pouch grid (копилки) */
+  .pouch-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px}
+  @media(max-width:520px){.pouch-grid{grid-template-columns:1fr 1fr}}
+  .pouch-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 10px 16px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; text-align:center; font-family:var(--sans); transition:transform .15s, box-shadow .15s}
+  .pouch-card:hover{transform:translateY(-3px); box-shadow:0 12px 26px rgba(0,0,0,.1)}
+  .pouch-card:active{transform:scale(.97)}
+  .pc-name{font-weight:600; font-size:14.5px; margin-top:4px; word-break:break-word; color:var(--ink)}
+  .pc-val{font-family:var(--display); font-weight:600; font-size:15px; color:var(--gold)}
+  .pc-pct{font-size:12px; color:var(--ink-soft)}
+  .pc-place{font-size:11.5px; color:var(--ink-faint); margin-top:1px}
+  .pouch-card.add{border-style:dashed; justify-content:center; color:var(--ink-soft); gap:6px}
+  .add-pouch{width:104px;height:116px; display:grid; place-items:center; font-size:44px; color:var(--gold); opacity:.65}
+  .pouch{width:104px;height:116px; display:block} .pouch.lg{width:150px;height:168px}
+  .pig{width:96px; height:74px; display:block} .pig.lg{width:158px; height:122px}
+
+  .bar{height:9px; border-radius:99px; background:var(--line-soft); overflow:hidden}
+  .bar > i{display:block; height:100%; border-radius:99px; transition:width .5s cubic-bezier(.2,.7,.2,1)}
+  .bar.gold > i{background:linear-gradient(90deg, #E7B85A, var(--gold))}
+  .bar.green > i{background:linear-gradient(90deg, var(--green), var(--green-ink))}
+
+  /* sub-view head with back */
+  .view-head{display:flex; align-items:center; gap:12px; margin:2px 0 18px}
+  .back-btn{width:40px;height:40px;border-radius:12px;border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; font-size:19px; display:grid;place-items:center; flex:none; transition:background .15s}
+  .back-btn:hover{background:var(--surface-2)}
+  .view-head h2{font-family:var(--display); font-weight:600; font-size:21px; margin:0; flex:1; letter-spacing:-.01em}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:14px}
+  /* свинка-цель card */
+  .meta-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px 18px; box-shadow:var(--shadow); text-align:center; display:flex; flex-direction:column; align-items:center; gap:5px}
+  .meta-card .mname{font-weight:600; font-size:16px; margin-top:2px; word-break:break-word}
+  .meta-card .mnums{font-size:13px; color:var(--ink-soft)}
+  .meta-card .mnums b{color:var(--ink); font-weight:600}
+  .meta-card .bar{width:100%; margin:8px 0 2px}
+  .meta-card .chips{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-top:4px}
+  .meta-card .row-actions{margin-top:10px; justify-content:center; width:100%; display:flex; gap:8px; flex-wrap:wrap}
+  .metaphor-open{border:none; background:none; cursor:pointer; padding:6px 10px; border-radius:16px; transition:transform .15s, background .15s}
+  .metaphor-open:hover{background:var(--surface-2); transform:translateY(-2px)}
+  .metaphor-open:active{transform:scale(.95)}
+
+  .chip{display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:4px 9px; border-radius:99px; background:var(--surface-2); color:var(--ink-soft); border:1px solid var(--line)}
+  .chip.warn{background:var(--brick-soft); color:var(--brick); border-color:transparent}
+  .chip.ok{background:var(--green-soft); color:var(--green-ink); border-color:transparent}
+  .row-actions{display:flex; gap:8px; flex-wrap:wrap}
+
+  /* detail modal */
+  .detail-nums{display:flex; align-items:baseline; gap:8px; justify-content:center}
+  .detail-nums .big{font-family:var(--display); font-weight:600; font-size:26px; letter-spacing:-.01em}
+  .detail-nums .of{font-size:14px; color:var(--ink-soft)}
+  .detail-hist{margin-top:16px; display:flex; flex-direction:column; gap:6px; max-height:210px; overflow:auto; border-top:1px solid var(--line-soft); padding-top:14px}
+  .hist-item{display:flex; align-items:center; gap:8px; font-size:13px; padding:6px 8px; background:var(--surface-2); border-radius:9px}
+  .hist-item .amt{margin-left:auto; font-weight:600; font-variant-numeric:tabular-nums}
+  .hist-item .amt.in{color:var(--green)} .hist-item .amt.out{color:var(--brick)}
+  .hist-item .date{color:var(--ink-faint); font-size:11.5px}
+  .hist-item .x{color:var(--ink-faint); cursor:pointer; border:none; background:none; font-size:14px; padding:0 2px}
+
+  /* receipt (траты) */
+  .receipt{--paper:#FCFBF6; --rink:#2C2C28; --rfaint:#a19d90; --rline:#d7d2c3;
+    max-width:440px; margin:0 auto; background:var(--paper); color:var(--rink);
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Consolas, "DejaVu Sans Mono", monospace;
+    font-size:13px; padding:24px 22px; box-shadow:0 12px 34px rgba(0,0,0,.16); position:relative;
+    --s:16px; --b:8px; --a:90deg;
+    -webkit-mask:conic-gradient(from calc(var(--a)/-2 - 45deg) at bottom, #0000 var(--a), #000 0) bottom/var(--s) var(--b) repeat-x, conic-gradient(from calc(var(--a)/2 + 135deg) at top, #0000 var(--a), #000 0) top/var(--s) var(--b) repeat-x, linear-gradient(#000 0 0) center/100% calc(100% - 2*var(--b)) no-repeat;
+    mask:conic-gradient(from calc(var(--a)/-2 - 45deg) at bottom, #0000 var(--a), #000 0) bottom/var(--s) var(--b) repeat-x, conic-gradient(from calc(var(--a)/2 + 135deg) at top, #0000 var(--a), #000 0) top/var(--s) var(--b) repeat-x, linear-gradient(#000 0 0) center/100% calc(100% - 2*var(--b)) no-repeat;}
+  .r-head{text-align:center; padding:4px 0 10px}
+  .r-shop{font-family:var(--display); font-weight:700; font-size:20px; letter-spacing:.14em; color:var(--rink)}
+  .r-sub{font-size:11.5px; color:var(--rfaint); letter-spacing:.05em; margin-top:3px; text-transform:uppercase}
+  .r-rule{border-top:1.5px dashed var(--rline); margin:10px 0}
+  .r-caption{font-size:10.5px; letter-spacing:.1em; color:var(--rfaint); text-align:center; margin:2px 0 8px; text-transform:uppercase}
+  .r-item{display:flex; align-items:flex-end; gap:6px; padding:4px 0}
+  .r-item .nm{white-space:nowrap; max-width:60%; overflow:hidden; text-overflow:ellipsis}
+  .r-item .lead{flex:1; border-bottom:1.5px dotted var(--rline); transform:translateY(-3px)}
+  .r-item .amt{white-space:nowrap; font-variant-numeric:tabular-nums; font-weight:700}
+  .r-item .rx{border:none; background:none; color:var(--rfaint); cursor:pointer; font-size:13px; padding:0 0 0 4px; line-height:1}
+  .r-item .rx:hover{color:var(--brick)}
+  .r-cat{display:flex; justify-content:space-between; gap:8px; font-size:12px; color:var(--rink); padding:2px 0}
+  .r-cat span:last-child{font-variant-numeric:tabular-nums}
+  .r-total{display:flex; justify-content:space-between; align-items:baseline; font-weight:700; font-size:15px; padding:3px 0}
+  .r-total.sub{font-weight:400; font-size:12px; color:var(--rfaint)}
+  .barcode{height:38px; margin:14px auto 6px; max-width:200px; background:repeating-linear-gradient(90deg, var(--rink) 0 2px, transparent 2px 4px, var(--rink) 4px 5px, transparent 5px 8px, var(--rink) 8px 11px, transparent 11px 13px)}
+  .r-foot{text-align:center; font-size:10.5px; color:var(--rfaint); letter-spacing:.08em; text-transform:uppercase}
+  .receipt-add{display:block; margin:16px auto 0}
+
+  .cat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+  .cat-grid label{cursor:pointer} .cat-grid input{position:absolute; opacity:0}
+  .cat-grid span{display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 4px; border:1px solid var(--line); border-radius:12px; font-size:11px; font-weight:600; color:var(--ink-soft); background:var(--surface-2); transition:.15s}
+  .cat-grid span .e{font-size:19px}
+  .cat-grid input:checked + span{border-color:var(--brick); background:var(--brick-soft); color:var(--brick)}
+  .exp-ic{width:38px;height:38px;border-radius:11px;background:var(--surface-2); display:grid; place-items:center; font-size:18px; flex:none}
+
+  .empty{text-align:center; padding:34px 20px; border:1.5px dashed var(--line); border-radius:var(--radius); background:var(--surface-2); color:var(--ink-soft)}
+  .empty .em{font-size:34px; display:block; margin-bottom:8px}
+  .empty p{margin:0 0 14px; font-size:14px}
+
+  .overlay{position:fixed; inset:0; background:rgba(20,24,18,.5); backdrop-filter:blur(3px); display:none; align-items:flex-end; justify-content:center; z-index:100}
+  .overlay.open{display:flex}
+  @media(min-width:600px){.overlay{align-items:center; padding:20px}}
+  .modal{background:var(--surface); width:100%; max-width:460px; border-radius:22px 22px 0 0; padding:22px 20px calc(22px + env(safe-area-inset-bottom,0px)); box-shadow:0 -8px 40px rgba(0,0,0,.25); animation:slideup .25s ease both; max-height:92dvh; overflow:auto}
+  @media(min-width:600px){.modal{border-radius:22px}}
+  @keyframes slideup{from{transform:translateY(30px); opacity:.6} to{transform:none; opacity:1}}
+  .modal h3{font-family:var(--display); font-weight:600; font-size:19px; margin:0 0 4px}
+  .modal .msub{font-size:13px; color:var(--ink-soft); margin:0 0 18px}
+  .field{margin-bottom:14px}
+  .field label{display:block; font-size:13px; font-weight:600; color:var(--ink-soft); margin-bottom:6px}
+  .field input, .field select{width:100%; font-family:var(--sans); font-size:16px; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:12px 14px; outline:none; transition:border-color .15s, box-shadow .15s}
+  .field input:focus, .field select:focus{border-color:var(--green); box-shadow:0 0 0 3px var(--green-soft)}
+  .modal-actions{display:flex; gap:10px; margin-top:20px}
+  .modal-actions .btn{flex:1; justify-content:center}
+  .seg{display:flex; gap:8px; margin-bottom:16px}
+  .seg label{flex:1; cursor:pointer}
+  .seg input{position:absolute; opacity:0; pointer-events:none}
+  .seg span{display:block; text-align:center; padding:11px; border:1px solid var(--line); border-radius:12px; font-weight:600; font-size:14px; color:var(--ink-soft); background:var(--surface-2); transition:.15s}
+  .seg input:checked + span{border-color:var(--gold); background:var(--gold-soft); color:var(--gold)}
+
+  #toast{position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--bg); padding:11px 18px; border-radius:12px; font-size:14px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,.3); opacity:0; pointer-events:none; transition:.3s; z-index:200; max-width:90vw}
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+  .foot{margin-top:34px; padding-top:18px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; gap:10px; justify-content:center}
+  .foot .link-btn{background:none; border:none; color:var(--ink-soft); font-family:var(--sans); font-size:12.5px; cursor:pointer; padding:2px 4px; font-weight:500}
+  .foot .link-btn:hover{color:var(--brick)}
+  .foot .tip{width:100%; text-align:center; font-size:12px; color:var(--ink-faint); margin-bottom:6px}
+  .auth-gate{position:fixed; inset:0; z-index:300; background:var(--bg); display:none; align-items:center; justify-content:center; padding:20px; padding-top:calc(env(safe-area-inset-top,0px) + 20px)}
+  .auth-card{width:100%; max-width:380px; background:var(--surface); border:1px solid var(--line); border-radius:22px; box-shadow:var(--shadow); padding:26px 22px}
+  .auth-brand{display:flex; align-items:center; gap:10px; margin-bottom:14px}
+  .auth-brand .coin{width:34px;height:34px;border-radius:10px;flex:none;background:radial-gradient(circle at 32% 30%, #F4D890, var(--gold) 70%);display:grid;place-items:center;color:#4a3405;font-family:var(--display);font-weight:700;font-size:17px}
+  .auth-brand h1{font-family:var(--display); font-weight:600; font-size:19px; margin:0}
+  .auth-brand span{display:block; font-size:11px; color:var(--ink-faint); font-weight:500}
+  .auth-sub{font-size:13px; color:var(--ink-soft); margin:0 0 18px}
+  .auth-err{color:var(--brick); font-size:13px; min-height:18px; margin:2px 0 8px}
+  .auth-switch{text-align:center; font-size:13px; color:var(--ink-soft); margin-top:14px}
+  .auth-switch button{background:none; border:none; color:var(--green); font-family:var(--sans); font-size:13px; font-weight:600; cursor:pointer; padding:0}
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="header-inner">
+    <div class="brand"><div class="coin">₭</div><div><h1>Копилка</h1><span>учёт денег в браузере</span></div></div>
+    <select class="cur-select" id="curSelect" title="Валюта" aria-label="Валюта">
+      <option value="₸">₸ тенге</option><option value="$">$ доллар</option>
+      <option value="€">€ евро</option><option value="₽">₽ рубль</option><option value="£">£ фунт</option>
+    </select>
+    <button class="icon-btn" id="logoutBtn" style="display:none" title="Выйти из аккаунта" aria-label="Выйти">⎋</button>
+    <button class="icon-btn" id="themeBtn" title="Тема" aria-label="Сменить тему">◑</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- HOME -->
+  <section class="view active" id="view-home">
+    <div class="home-total"><div class="lab">Всего накоплено в копилках</div><div class="val" id="homeTotal">0</div></div>
+    <div class="home-split" id="homeSplit"></div>
+
+    <div class="quick-actions">
+      <button class="qbtn earn" data-modal="earn"><span class="qic">🤑</span>Я заработал</button>
+      <button class="qbtn spend" data-modal="spend"><span class="qic">💸</span>Я потратил</button>
+    </div>
+
+    <div class="catalog">
+      <button class="cat-tile exp" data-go="expenses">
+        <div class="ct-top"><span class="ct-ic">🧾</span><span class="ct-name">Траты</span><span class="cat-arrow">→</span></div>
+        <div class="ct-val" id="catExpVal">0</div><div class="ct-sub">за месяц</div>
+      </button>
+      <button class="cat-tile goal" data-go="goals">
+        <div class="ct-top"><span class="ct-ic">🐷</span><span class="ct-name">Цели</span><span class="cat-arrow">→</span></div>
+        <div class="ct-val" id="catGoalVal">0</div><div class="ct-sub" id="catGoalSub">заработано по целям</div>
+      </button>
+    </div>
+
+    <div class="sec-head"><h2>Копилки</h2><span class="count" id="jarsCount"></span></div>
+    <div class="pouch-grid" id="jarsList"></div>
+
+    <div class="foot">
+      <div class="tip">Данные хранятся в базе данных этого браузера. Для надёжности делайте резервную копию.</div>
+      <button class="link-btn" id="exportBtn">⬇ Сохранить копию (.json)</button>
+      <button class="link-btn" id="importBtn">⬆ Загрузить копию</button>
+      <button class="link-btn" id="resetBtn">🗑 Сбросить всё</button>
+      <input type="file" id="importFile" accept="application/json" hidden>
+    </div>
+  </section>
+
+  <!-- EXPENSES -->
+  <section class="view" id="view-expenses">
+    <div class="view-head"><button class="back-btn" data-back title="Назад">←</button><h2>Траты</h2>
+      <button class="btn primary sm" data-modal="expense">＋ Трата</button></div>
+    <div id="expChart"></div>
+    <div id="expReceipt"></div>
+  </section>
+
+  <!-- GOALS -->
+  <section class="view" id="view-goals">
+    <div class="view-head"><button class="back-btn" data-back title="Назад">←</button><h2>Цели заработка</h2>
+      <button class="btn primary sm" data-modal="goal">＋ Цель</button></div>
+    <div class="cards" id="goalsList"></div>
+  </section>
+
+</div>
+
+<div id="toast"></div>
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+<div class="auth-gate" id="authGate"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+"use strict";
+const STORE_KEY="kopilka_state_v1";
+const nf=new Intl.NumberFormat("ru-RU");
+const CATS=[
+  {id:"food",name:"Еда",e:"🍔",color:"#E8894A"},{id:"transport",name:"Транспорт",e:"🚗",color:"#4A90D9"},
+  {id:"home",name:"Жильё",e:"🏠",color:"#7C6BD6"},{id:"fun",name:"Досуг",e:"🎮",color:"#E85A8A"},
+  {id:"health",name:"Здоровье",e:"💊",color:"#46B58A"},{id:"shop",name:"Покупки",e:"🛍️",color:"#D9B441"},
+  {id:"bills",name:"Счета",e:"📱",color:"#5AA9B5"},{id:"other",name:"Прочее",e:"✨",color:"#9AA0A6"}
+];
+const catById=id=>CATS.find(c=>c.id===id)||CATS[CATS.length-1];
+let _svgN=0;
+
+let state=loadLocal();
+function loadLocal(){try{const raw=localStorage.getItem(STORE_KEY);if(raw)return normalize(JSON.parse(raw));}catch(e){console.warn("read fail",e);}return {currency:"₸",theme:null,jars:[],goals:[],expenses:[]};}
+function normalize(s){s=s||{};s.currency=s.currency||"₸";s.jars=Array.isArray(s.jars)?s.jars:[];s.goals=Array.isArray(s.goals)?s.goals:[];s.expenses=Array.isArray(s.expenses)?s.expenses:[];s.jars.forEach(j=>{if(j.place!=="bank"&&j.place!=="cash")j.place="cash";if(typeof j.placeName!=="string")j.placeName="";});return s;}
+let _db=null;
+function idbOpen(){return new Promise((res,rej)=>{try{const rq=indexedDB.open("kopilka_db",1);rq.onupgradeneeded=()=>rq.result.createObjectStore("kv");rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error);}catch(e){rej(e);}});}
+function idbGet(k){return new Promise(res=>{if(!_db)return res(null);try{const r=_db.transaction("kv","readonly").objectStore("kv").get(k);r.onsuccess=()=>res(r.result==null?null:r.result);r.onerror=()=>res(null);}catch(e){res(null);}});}
+function idbSet(k,v){try{if(_db)_db.transaction("kv","readwrite").objectStore("kv").put(v,k);}catch(e){}}
+function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){toast("Нет места в браузере");}idbSet("state",state);cloudPush();}
+
+/* ---------- облако (Supabase) — заполните два значения ниже ---------- */
+const SUPABASE_URL="";        // ← сюда Project URL из настроек Supabase
+const SUPABASE_ANON_KEY="";   // ← сюда anon public key из настроек Supabase
+let sb=null,user=null,cloudOn=false,cloudTimer=null;
+function cloudInit(){if(SUPABASE_URL&&SUPABASE_ANON_KEY&&window.supabase){try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);cloudOn=true;}catch(e){cloudOn=false;}}}
+function cloudPush(){if(!cloudOn||!user)return;clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudPushNow,700);}
+async function cloudPushNow(){if(!cloudOn||!user)return;try{await sb.from("kopilka_states").upsert({user_id:user.id,data:state,updated_at:new Date().toISOString()});}catch(e){}}
+async function cloudLoad(){try{const{data,error}=await sb.from("kopilka_states").select("data").eq("user_id",user.id).maybeSingle();if(error)throw error;if(data&&data.data){state=normalize(data.data);}else{await cloudPushNow();}applyTheme();renderAll();updateAccountUI();}catch(e){toast("Не удалось загрузить из облака");}}
+function updateAccountUI(){const b=document.getElementById("logoutBtn");if(b)b.style.display=(cloudOn&&user)?"grid":"none";}
+async function authSignIn(email,pass){const{error}=await sb.auth.signInWithPassword({email,password:pass});return error;}
+async function authSignUp(email,pass){const{error}=await sb.auth.signUp({email,password:pass});return error;}
+function showAuthGate(){document.getElementById("authGate").style.display="flex";renderAuthGate("login");}
+function hideAuthGate(){document.getElementById("authGate").style.display="none";}
+function renderAuthGate(mode){const g=document.getElementById("authGate");g.innerHTML=`<div class="auth-card">
+    <div class="auth-brand"><div class="coin">₭</div><div><h1>Копилка</h1><span>${mode==="login"?"вход в аккаунт":"регистрация"}</span></div></div>
+    <p class="auth-sub">${mode==="login"?"Войдите — и копилки будут на всех устройствах.":"Создайте аккаунт, чтобы данные синхронизировались между устройствами."}</p>
+    <div class="field"><label>Email</label><input id="au_email" type="email" autocomplete="email" placeholder="you@mail.com"></div>
+    <div class="field"><label>Пароль</label><input id="au_pass" type="password" autocomplete="current-password" placeholder="минимум 6 символов"></div>
+    <div class="auth-err" id="au_err"></div>
+    <button class="btn primary block" id="au_go">${mode==="login"?"Войти":"Зарегистрироваться"}</button>
+    <div class="auth-switch">${mode==="login"?`Нет аккаунта? <button id="au_switch">Создать</button>`:`Уже есть аккаунт? <button id="au_switch">Войти</button>`}</div>
+  </div>`;
+  document.getElementById("au_switch").onclick=()=>renderAuthGate(mode==="login"?"signup":"login");
+  document.getElementById("au_go").onclick=async()=>{const email=document.getElementById("au_email").value.trim();const pass=document.getElementById("au_pass").value;const err=document.getElementById("au_err");if(!email||!pass)return err.textContent="Введите email и пароль";const btn=document.getElementById("au_go");btn.disabled=true;const e=mode==="login"?await authSignIn(email,pass):await authSignUp(email,pass);btn.disabled=false;if(e){err.textContent=e.message||"Ошибка";return;}const{data:{session}}=await sb.auth.getSession();if(session&&session.user){user=session.user;updateAccountUI();await cloudLoad();hideAuthGate();}else{err.textContent="Аккаунт создан. Подтвердите email в письме и войдите.";renderAuthGate("login");}};
+}
+async function doLogout(){try{await sb.auth.signOut();}catch(e){}user=null;updateAccountUI();showAuthGate();}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+function money(n){return nf.format(Math.round(n))+" "+state.currency;}
+function parseAmt(v){v=String(v??"").replace(/\s/g,"").replace(",",".").replace(/[^\d.]/g,"");const n=parseFloat(v);return isFinite(n)?n:NaN;}
+function todayISO(){return new Date().toISOString().slice(0,10);}
+function fmtDate(iso){try{return new Date(iso).toLocaleDateString("ru-RU",{day:"numeric",month:"short"});}catch(e){return iso;}}
+function monthLabel(){return new Date().toLocaleDateString("ru-RU",{month:"long",year:"numeric"});}
+function sameMonth(iso){const d=new Date(iso),n=new Date();return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth();}
+function daysLeft(iso){const d=new Date(iso),n=new Date();n.setHours(0,0,0,0);return Math.ceil((d-n)/86400000);}
+function clampPct(a,b){if(!b||b<=0)return 0;return Math.min(100,Math.max(0,a/b*100));}
+function esc(s){return (s??"").toString().replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
+function plural(n,one,few,many){n=Math.abs(n)%100;const n1=n%10;if(n>10&&n<20)return many;if(n1>1&&n1<5)return few;if(n1===1)return one;return many;}
+function placeText(j){const bank=j.place==="bank";const ic=bank?"🏦":"💵";const nm=(j.placeName||"").trim();return ic+" "+esc(nm||(bank?"Счёт":"Наличка"));}
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200);}
+
+/* ---- SVG: мешочек (по скетчу) ---- */
+const POUCH="M30 16 C 40 34,44 40,46 50 C 24 60,14 72,16 88 C 18 110,34 126,60 126 C 86 126,102 110,104 88 C 106 72,96 60,74 50 C 76 40,80 34,90 16 C 78 26,42 26,30 16 Z";
+function pouchSVG(pct,size){
+  const p=Math.min(100,Math.max(0,pct)); const bot=126,top=52,h=bot-top; const fh=h*(p/100); const y=bot-fh;
+  const id=_svgN++; const cur=state.currency; const cls=size==="lg"?"pouch lg":"pouch";
+  return `<svg class="${cls}" viewBox="0 0 120 134" aria-hidden="true">
+    <defs><clipPath id="pc${id}"><path d="${POUCH}"/></clipPath>
+      <linearGradient id="pcg${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EEC873"/><stop offset="1" stop-color="var(--gold)"/></linearGradient></defs>
+    <path d="${POUCH}" fill="var(--surface-2)" stroke="var(--gold)" stroke-width="2.4" stroke-linejoin="round"/>
+    <g clip-path="url(#pc${id})"><rect x="6" y="${y}" width="108" height="${fh+8}" fill="url(#pcg${id})"/></g>
+    <path d="${POUCH}" fill="none" stroke="var(--gold)" stroke-width="2.4" stroke-linejoin="round"/>
+    <ellipse cx="60" cy="20" rx="30" ry="7.5" fill="var(--bg)" stroke="var(--gold)" stroke-width="2"/>
+    <circle cx="60" cy="92" r="15" fill="rgba(255,255,255,.42)" stroke="var(--gold)" stroke-width="1.4"/>
+    <text x="60" y="98" text-anchor="middle" font-size="18" font-weight="700" fill="var(--gold)" font-family="Unbounded, sans-serif">${cur}</text>
+  </svg>`;
+}
+/* ---- SVG: свинка-цель ---- */
+function pigSVG(pct,size){
+  const p=Math.min(100,Math.max(0,pct)); const bot=65,h=50; const fh=h*(p/100); const y=bot-fh;
+  const id=_svgN++; const cls=size==="lg"?"pig lg":"pig";
+  return `<svg class="${cls}" viewBox="0 0 100 80" aria-hidden="true">
+    <defs><clipPath id="pg${id}"><ellipse cx="46" cy="40" rx="34" ry="25"/></clipPath>
+      <linearGradient id="pgg${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--green)"/><stop offset="1" stop-color="var(--green-ink)"/></linearGradient></defs>
+    <g fill="var(--green-soft)" stroke="var(--green)" stroke-width="1.5">
+      <rect x="22" y="58" width="8" height="15" rx="3"/><rect x="36" y="60" width="8" height="15" rx="3"/>
+      <rect x="52" y="60" width="8" height="15" rx="3"/><rect x="66" y="58" width="8" height="15" rx="3"/></g>
+    <path d="M12 42 q-6 -2 -4 -7 q2 -4 -3 -5" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M30 20 L41 12 L45 29 Z" fill="var(--green)"/>
+    <ellipse cx="46" cy="40" rx="34" ry="25" fill="var(--green-soft)" stroke="var(--green)" stroke-width="2"/>
+    <g clip-path="url(#pg${id})"><rect x="10" y="${y}" width="72" height="${fh+6}" fill="url(#pgg${id})"/></g>
+    <ellipse cx="46" cy="40" rx="34" ry="25" fill="none" stroke="var(--green)" stroke-width="2"/>
+    <rect x="38" y="12" width="20" height="4" rx="2" fill="var(--green-ink)" transform="rotate(-7 48 14)"/>
+    <ellipse cx="82" cy="44" rx="12" ry="10" fill="var(--green-soft)" stroke="var(--green)" stroke-width="1.8"/>
+    <ellipse cx="78" cy="44" rx="2.1" ry="3" fill="var(--green-ink)"/><ellipse cx="86" cy="44" rx="2.1" ry="3" fill="var(--green-ink)"/>
+    <circle cx="60" cy="33" r="2.7" fill="var(--green-ink)"/>
+  </svg>`;
+}
+/* ---- SVG: пирог трат ---- */
+function donutSVG(parts,total){
+  const r=54,cx=70,cy=70,w=24,C=2*Math.PI*r;let off=0;
+  const segs=parts.map(p=>{const dash=total>0?p.val/total*C:0;const s=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${p.color}" stroke-width="${w}" stroke-dasharray="${dash.toFixed(2)} ${(C-dash).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`;off+=dash;return s;}).join("");
+  return `<svg viewBox="0 0 140 140" class="donut" aria-hidden="true"><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--line-soft)" stroke-width="${w}"/><g transform="rotate(-90 ${cx} ${cy})">${segs}</g><text x="70" y="67" text-anchor="middle" class="donut-total">${money(total)}</text><text x="70" y="84" text-anchor="middle" class="donut-cap">ЗА МЕСЯЦ</text></svg>`;
+}
+
+/* ---------- render ---------- */
+function renderAll(){document.getElementById("curSelect").value=state.currency; renderHome(); renderGoals(); renderExpenses(); save();}
+
+function renderHome(){
+  const totalSaved=state.jars.reduce((s,j)=>s+j.balance,0);
+  document.getElementById("homeTotal").textContent=money(totalSaved);
+  const cashSum=state.jars.filter(j=>j.place!=="bank").reduce((s,j)=>s+j.balance,0);
+  const bankSum=state.jars.filter(j=>j.place==="bank").reduce((s,j)=>s+j.balance,0);
+  document.getElementById("homeSplit").innerHTML=state.jars.length?`💵 Наличка <b>${money(cashSum)}</b> · 🏦 Счета <b>${money(bankSum)}</b>`:"";
+  document.getElementById("catExpVal").textContent=money(state.expenses.filter(e=>sameMonth(e.date)).reduce((s,e)=>s+e.amount,0));
+  const earned=state.goals.reduce((s,g)=>s+g.earned,0);
+  document.getElementById("catGoalVal").textContent=state.goals.length?money(earned):"0";
+  document.getElementById("catGoalSub").textContent=state.goals.length?`${state.goals.length} ${plural(state.goals.length,"цель","цели","целей")}`:"целей пока нет";
+  document.getElementById("jarsCount").textContent=state.jars.length?state.jars.length+" шт.":"";
+
+  const add=`<button class="pouch-card add" data-modal="jar"><div class="add-pouch">＋</div><div class="pc-name">Новая копилка</div></button>`;
+  const box=document.getElementById("jarsList");
+  const cards=state.jars.map(j=>{const hasGoal=j.target>0;const fill=hasGoal?clampPct(j.balance,j.target):(j.balance>0?62:8);const done=hasGoal&&j.balance>=j.target;
+    return `<button class="pouch-card" data-act="jar-open" data-id="${j.id}">${pouchSVG(fill)}<div class="pc-name">${esc(j.name)}${done?" ✅":""}</div><div class="pc-val">${money(j.balance)}</div><div class="pc-pct">${hasGoal?Math.round(clampPct(j.balance,j.target))+"% из "+money(j.target):"свободная копилка"}</div><div class="pc-place">${placeText(j)}</div></button>`;
+  }).join("");
+  box.innerHTML=(state.jars.length?cards:`<div class="empty" style="grid-column:1/-1"><span class="em">💰</span><p>Копилка-мешочек — конверт под мечту или просто счёт для денег. Нажимайте на мешочек, чтобы открыть его.</p></div>`)+add;
+}
+
+function renderGoals(){
+  const box=document.getElementById("goalsList");
+  if(!state.goals.length){box.innerHTML=`<div class="empty" style="grid-column:1/-1"><span class="em">🐷</span><p>Свинка-копилка — цель заработка: сколько хотите заработать. Отмечайте каждое поступление, и свинка наполняется.</p><button class="btn primary" data-modal="goal">＋ Создать цель</button></div>`;return;}
+  box.innerHTML=state.goals.map(g=>{const pct=clampPct(g.earned,g.target);const left=Math.max(0,(g.target||0)-g.earned);const done=pct>=100;
+    let chip="";if(g.deadline){const dl=daysLeft(g.deadline);if(done)chip=`<span class="chip ok">Готово 🎉</span>`;else if(dl<0)chip=`<span class="chip warn">Срок прошёл</span>`;else{const per=dl>0?left/dl:left;chip=`<span class="chip ${dl<=7?"warn":""}">⏳ ${dl} дн · ~${money(per)}/день</span>`;}}
+    return `<div class="meta-card">
+      <button class="metaphor-open" data-act="goal-open" data-id="${g.id}" title="Открыть цель">${pigSVG(pct)}</button>
+      <div class="mname">${esc(g.name)}${done?" ✅":""}</div>
+      <div class="mnums"><b>${money(g.earned)}</b> из ${money(g.target)}</div>
+      <div class="bar green"><i style="width:${pct}%"></i></div>
+      <div class="chips"><span class="chip">${Math.round(pct)}%</span>${done?`<span class="chip ok">Достигнуто</span>`:`<span class="chip">Осталось ${money(left)}</span>`}${chip}</div>
+      <div class="row-actions"><button class="btn primary sm" data-act="goal-earn" data-id="${g.id}">＋ Доход</button><button class="btn ghost sm" data-act="goal-open" data-id="${g.id}">Открыть</button></div>
+    </div>`;
+  }).join("");
+}
+
+function renderExpenses(){
+  const month=state.expenses.filter(e=>sameMonth(e.date));
+  const monthTotal=month.reduce((s,e)=>s+e.amount,0);
+  const allTotal=state.expenses.reduce((s,e)=>s+e.amount,0);
+  const chartBox=document.getElementById("expChart");
+  const byCat={};month.forEach(e=>{byCat[e.category]=(byCat[e.category]||0)+e.amount;});
+  const entries=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  if(entries.length){
+    const parts=entries.map(([cid,v])=>({...catById(cid),val:v}));
+    const legend=parts.map(p=>`<div class="leg-row"><span class="leg-dot" style="background:${p.color}"></span><span class="leg-name">${p.e} ${p.name}</span><span class="leg-val">${money(p.val)}</span><span class="leg-pct">${Math.round(p.val/monthTotal*100)}%</span></div>`).join("");
+    chartBox.innerHTML=`<div class="chart-card"><div class="chart-title">Куда уходят деньги · ${esc(monthLabel())}</div><div class="chart-wrap">${donutSVG(parts,monthTotal)}<div class="legend">${legend}</div></div></div>`;
+  } else chartBox.innerHTML="";
+
+  const box=document.getElementById("expReceipt");
+  if(!state.expenses.length){box.innerHTML=`<div class="receipt"><div class="r-head"><div class="r-shop">КОПИЛКА</div><div class="r-sub">чек расходов</div></div><div class="r-rule"></div><p style="text-align:center;color:var(--rfaint);font-size:12px;padding:14px 0">— пусто —<br>записывайте траты, чтобы видеть,<br>куда уходят деньги</p><div class="r-rule"></div><button class="btn primary receipt-add" data-modal="expense">＋ Добавить трату</button></div>`;return;}
+  const sorted=state.expenses.slice().sort((a,b)=>(b.date+"").localeCompare(a.date+"")||(b.id+"").localeCompare(a.id));
+  const items=sorted.map(e=>{const c=catById(e.category);return `<div class="r-item"><span class="nm">${c.e} ${esc(e.note||c.name)}</span><span class="lead"></span><span class="amt">−${money(e.amount)}</span><button class="rx" data-act="exp-del" data-id="${e.id}" title="Удалить">✕</button></div>`;}).join("");
+  box.innerHTML=`<div class="receipt">
+    <div class="r-head"><div class="r-shop">КОПИЛКА</div><div class="r-sub">чек расходов • ${esc(monthLabel())}</div></div>
+    <div class="r-rule"></div><div class="r-caption">операции</div>${items}<div class="r-rule"></div>
+    <div class="r-total"><span>ИТОГО ЗА МЕСЯЦ</span><span>${money(monthTotal)}</span></div>
+    <div class="r-total sub"><span>за всё время</span><span>${money(allTotal)}</span></div>
+    <div class="barcode"></div>
+    <div class="r-foot">${sorted.length} ${plural(sorted.length,"операция","операции","операций")} • ${fmtDate(todayISO())}</div>
+    <button class="btn primary receipt-add" data-modal="expense">＋ Добавить трату</button>
+  </div>`;
+}
+
+/* ---------- views ---------- */
+function showView(v){document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));const el=document.getElementById("view-"+v);if(el)el.classList.add("active");window.scrollTo({top:0,behavior:"smooth"});}
+
+/* ---------- modals ---------- */
+const overlay=document.getElementById("overlay"), modalEl=document.getElementById("modal");
+let openDetail=null;
+function openModal(html){modalEl.innerHTML=html;overlay.classList.add("open");const f=modalEl.querySelector("input,select");if(f)setTimeout(()=>f.focus(),80);}
+function closeModal(){overlay.classList.remove("open");openDetail=null;}
+overlay.addEventListener("click",e=>{if(e.target===overlay)closeModal();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
+function confirmModal(title,msg,onYes,okLabel){openDetail=null;openModal(`<h3>${title}</h3><p class="msub" style="margin-bottom:20px">${msg}</p><div class="modal-actions"><button class="btn ghost" id="c_no">Отмена</button><button class="btn danger" id="c_yes">${okLabel||"Удалить"}</button></div>`);document.getElementById("c_no").onclick=closeModal;document.getElementById("c_yes").onclick=()=>{closeModal();onYes();};}
+
+function modalJar(){openDetail=null;
+  openModal(`<h3>Новая копилка</h3><p class="msub">Мешочек под мечту или просто счёт для денег.</p>
+    <div class="seg">
+      <label><input type="radio" name="jmode" value="free" checked><span>Без цели</span></label>
+      <label><input type="radio" name="jmode" value="goal"><span>С целью</span></label>
+    </div>
+    <div class="field"><label>Название</label><input id="m_name" placeholder="Напр. Подушка безопасности" maxlength="40"></div>
+    <div class="field" id="targetField" style="display:none"><label>Сколько хочу накопить</label><input id="m_target" inputmode="decimal" placeholder="0"></div>
+    <div class="field"><label>Где хранится</label>
+      <div class="seg">
+        <label><input type="radio" name="jplace" value="cash" checked><span>💵 Наличка</span></label>
+        <label><input type="radio" name="jplace" value="bank"><span>🏦 Счёт</span></label>
+      </div></div>
+    <div class="field"><label>В каком именно (необязательно)</label><input id="m_place" placeholder="напр. конверт дома, кошелёк" maxlength="40"></div>
+    <div class="field"><label>Уже есть (необязательно)</label><input id="m_start" inputmode="decimal" placeholder="0"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Отмена</button><button class="btn primary" id="m_ok">Создать</button></div>`);
+  modalEl.querySelectorAll('input[name="jmode"]').forEach(r=>r.addEventListener("change",()=>{const goal=modalEl.querySelector('input[name="jmode"]:checked').value==="goal";document.getElementById("targetField").style.display=goal?"block":"none";}));
+  modalEl.querySelectorAll('input[name="jplace"]').forEach(r=>r.addEventListener("change",()=>{const bank=modalEl.querySelector('input[name="jplace"]:checked').value==="bank";document.getElementById("m_place").placeholder=bank?"напр. Kaspi, Halyk, карта Visa":"напр. конверт дома, кошелёк";}));
+  document.getElementById("m_ok").onclick=()=>{const mode=(modalEl.querySelector('input[name="jmode"]:checked')||{}).value||"free";const place=(modalEl.querySelector('input[name="jplace"]:checked')||{}).value||"cash";const name=document.getElementById("m_name").value.trim();const placeName=document.getElementById("m_place").value.trim();const start=parseAmt(document.getElementById("m_start").value)||0;
+    if(!name)return toast("Введите название");
+    let target=0;if(mode==="goal"){target=parseAmt(document.getElementById("m_target").value);if(!(target>0))return toast("Введите сумму цели");}
+    const jar={id:uid(),name,target,place,placeName,balance:Math.max(0,start),history:[]};if(start>0)jar.history.push({id:uid(),type:"deposit",amount:start,date:todayISO(),note:"стартовая сумма"});
+    state.jars.push(jar);renderAll();closeModal();toast("Копилка создана");};
+}
+function modalGoal(){openDetail=null;
+  openModal(`<h3>Новая цель заработка</h3><p class="msub">Свинка-копилка: сколько хотите заработать.</p>
+    <div class="field"><label>Название</label><input id="m_name" placeholder="Напр. Заработать за лето" maxlength="40"></div>
+    <div class="field"><label>Целевая сумма</label><input id="m_target" inputmode="decimal" placeholder="0"></div>
+    <div class="field"><label>Срок (необязательно)</label><input id="m_deadline" type="date"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Отмена</button><button class="btn primary" id="m_ok">Создать</button></div>`);
+  document.getElementById("m_ok").onclick=()=>{const name=document.getElementById("m_name").value.trim();const target=parseAmt(document.getElementById("m_target").value);const deadline=document.getElementById("m_deadline").value||null;
+    if(!name)return toast("Введите название");if(!(target>0))return toast("Введите целевую сумму");
+    state.goals.push({id:uid(),name,target,earned:0,deadline,history:[]});renderAll();closeModal();toast("Цель создана");};
+}
+function modalExpense(){openDetail=null;
+  const cats=CATS.map((c,i)=>`<label><input type="radio" name="cat" value="${c.id}" ${i===0?"checked":""}><span><span class="e">${c.e}</span>${c.name}</span></label>`).join("");
+  openModal(`<h3>Новая трата</h3><p class="msub">Куда ушли деньги.</p>
+    <div class="field"><label>Сумма</label><input id="m_amount" inputmode="decimal" placeholder="0"></div>
+    <div class="field"><label>Категория</label><div class="cat-grid">${cats}</div></div>
+    <div class="field"><label>Заметка (необязательно)</label><input id="m_note" placeholder="Напр. обед в кафе" maxlength="60"></div>
+    <div class="field"><label>Дата</label><input id="m_date" type="date" value="${todayISO()}"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Отмена</button><button class="btn primary" id="m_ok">Добавить</button></div>`);
+  document.getElementById("m_ok").onclick=()=>{const amount=parseAmt(document.getElementById("m_amount").value);const category=(modalEl.querySelector('input[name="cat"]:checked')||{}).value||"other";const note=document.getElementById("m_note").value.trim();const date=document.getElementById("m_date").value||todayISO();
+    if(!(amount>0))return toast("Введите сумму");
+    state.expenses.push({id:uid(),amount,category,note,date});renderAll();closeModal();toast("Трата записана");};
+}
+
+function modalEarn(){openDetail=null;
+  if(!state.jars.length){openModal(`<h3>Я заработал 🤑</h3><p class="msub">Сначала создайте хотя бы одну копилку, чтобы было куда распределять деньги.</p><div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Закрыть</button><button class="btn primary" data-modal="jar">＋ Копилка</button></div>`);return;}
+  openModal(`<h3>Я заработал 🤑</h3><p class="msub">Сколько всего заработали?</p>
+    <div class="field"><label>Сумма</label><input id="m_amount" inputmode="decimal" placeholder="0"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Отмена</button><button class="btn primary" id="m_ok">Далее →</button></div>`);
+  document.getElementById("m_ok").onclick=()=>{const amount=parseAmt(document.getElementById("m_amount").value);if(!(amount>0))return toast("Введите сумму");modalDistribute(amount);};
+}
+
+function modalDistribute(total){openDetail=null;
+  const rows=state.jars.map(j=>`<div class="dist-row"><span class="dist-ic"></span><div class="dist-name"><div class="dn">${esc(j.name)}</div><div class="dist-sub">${placeText(j)}</div></div><input class="dist-inp" data-jid="${j.id}" inputmode="decimal" placeholder="0"></div>`).join("");
+  openModal(`<h3>Куда распределить?</h3><p class="msub">Заработано ${money(total)} · разложите по копилкам</p>
+    ${rows}
+    <div style="text-align:center;margin-top:14px"><span class="dist-remain" id="distRemain"></span></div>
+    <div class="modal-actions"><button class="btn ghost" id="d_even">Поровну</button><button class="btn primary" id="m_ok">Записать</button></div>`);
+  const inputs=[...modalEl.querySelectorAll(".dist-inp")];
+  function upd(){const sum=inputs.reduce((s,i)=>s+(parseAmt(i.value)||0),0);const rem=total-sum;const el=document.getElementById("distRemain");el.className="dist-remain"+(rem<0?" over":(rem===0?" ok":""));el.textContent=rem===0?"Всё распределено ✓":rem<0?`Перебор на ${money(-rem)}`:`Осталось ${money(rem)}`;}
+  inputs.forEach(i=>i.addEventListener("input",upd)); upd();
+  document.getElementById("d_even").onclick=()=>{const n=inputs.length;const each=Math.floor(total/n);inputs.forEach((i,idx)=>i.value=String(idx===n-1?total-each*(n-1):each));upd();};
+  document.getElementById("m_ok").onclick=()=>{let any=false;inputs.forEach(inp=>{const amt=parseAmt(inp.value);if(amt>0){const j=state.jars.find(x=>x.id===inp.dataset.jid);if(j){j.balance+=amt;j.history.push({id:uid(),type:"deposit",amount:amt,date:todayISO(),note:"заработок"});any=true;}}});
+    if(!any)return toast("Укажите хотя бы одну сумму");closeModal();renderAll();toast("Заработок распределён 🎉");};
+}
+
+function modalSpend(){openDetail=null;
+  const cats=CATS.map(c=>`<label><input type="radio" name="cat" value="${c.id}" ${c.id==="other"?"checked":""}><span><span class="e">${c.e}</span>${c.name}</span></label>`).join("");
+  openModal(`<h3>Я потратил 💸</h3><p class="msub">Сколько потратили?</p>
+    <div class="field"><label>Сумма</label><input id="m_amount" inputmode="decimal" placeholder="0"></div>
+    <div class="field"><label>Категория (необязательно)</label><div class="cat-grid">${cats}</div></div>
+    <div class="field"><label>Заметка (необязательно)</label><input id="m_note" placeholder="на что" maxlength="60"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Отмена</button><button class="btn primary" id="m_ok">Записать</button></div>`);
+  document.getElementById("m_ok").onclick=()=>{const amount=parseAmt(document.getElementById("m_amount").value);const category=(modalEl.querySelector('input[name="cat"]:checked')||{}).value||"other";const note=document.getElementById("m_note").value.trim();if(!(amount>0))return toast("Введите сумму");state.expenses.push({id:uid(),amount,category,note,date:todayISO()});renderAll();closeModal();toast("Трата записана");};
+}
+
+function jarDetailHTML(j){
+  const hasGoal=j.target>0;
+  const pct=hasGoal?clampPct(j.balance,j.target):(j.balance>0?62:8);
+  const left=Math.max(0,(j.target||0)-j.balance);const done=hasGoal&&j.balance>=j.target;
+  const hist=(j.history||[]).slice().reverse();
+  return `<div style="text-align:center">${pouchSVG(pct,"lg")}</div>
+    <h3 style="text-align:center;margin-top:8px">${esc(j.name)}${done?" ✅":""}</h3>
+    <div style="text-align:center;margin:4px 0 8px"><span class="chip">${placeText(j)}</span></div>
+    <div class="detail-nums"><span class="big" style="color:var(--gold)">${money(j.balance)}</span>${hasGoal?`<span class="of">из ${money(j.target)}</span>`:""}</div>
+    ${hasGoal?`<div class="bar gold" style="margin:14px 0 6px"><i style="width:${clampPct(j.balance,j.target)}%"></i></div>`:`<div style="height:8px"></div>`}
+    <p class="msub" style="text-align:center;margin:0 0 4px">${hasGoal?(done?"Цель достигнута 🎉":"Осталось накопить "+money(left)+" · "+Math.round(clampPct(j.balance,j.target))+"%"):"Свободная копилка · пополняйте и снимайте когда нужно"}</p>
+    <div class="modal-actions"><button class="btn primary" data-act="jar-deposit" data-id="${j.id}">＋ Пополнить</button><button class="btn ghost" data-act="jar-withdraw" data-id="${j.id}">− Снять</button></div>
+    ${hist.length?`<div class="detail-hist">${hist.map(h=>`<div class="hist-item"><span>${h.type==="deposit"?"＋":"−"}</span><span class="date">${fmtDate(h.date)}${h.note?" · "+esc(h.note):""}</span><span class="amt ${h.type==="deposit"?"in":"out"}">${h.type==="deposit"?"+":"−"}${money(h.amount)}</span><button class="x" data-act="jar-htx-del" data-id="${j.id}" data-hid="${h.id}">✕</button></div>`).join("")}</div>`:`<p class="msub" style="text-align:center;margin-top:16px">Пополнений пока нет</p>`}
+    <button class="btn danger block" style="margin-top:16px" data-act="jar-del" data-id="${j.id}">Удалить копилку</button>`;
+}
+function goalDetailHTML(g){
+  const pct=clampPct(g.earned,g.target);const left=Math.max(0,(g.target||0)-g.earned);const done=pct>=100;
+  const hist=(g.history||[]).slice().reverse();
+  let dl="";if(g.deadline){const d=daysLeft(g.deadline);dl=done?"Готово 🎉":d<0?"Срок прошёл":`Осталось ${d} дн · нужно ~${money(d>0?left/d:left)}/день`;}
+  return `<div style="text-align:center">${pigSVG(pct,"lg")}</div>
+    <h3 style="text-align:center;margin-top:8px">${esc(g.name)}${done?" ✅":""}</h3>
+    <div class="detail-nums"><span class="big" style="color:var(--green)">${money(g.earned)}</span><span class="of">из ${money(g.target)}</span></div>
+    <div class="bar green" style="margin:14px 0 6px"><i style="width:${pct}%"></i></div>
+    <p class="msub" style="text-align:center;margin:0 0 4px">${done?"Цель достигнута 🎉":"Осталось "+money(left)+" · "+Math.round(pct)+"%"}${dl?"<br>"+dl:""}</p>
+    <div class="modal-actions"><button class="btn primary" data-act="goal-earn" data-id="${g.id}">＋ Записать доход</button></div>
+    ${hist.length?`<div class="detail-hist">${hist.map(h=>`<div class="hist-item"><span>💰</span><span class="date">${fmtDate(h.date)}${h.note?" · "+esc(h.note):""}</span><span class="amt in">+${money(h.amount)}</span><button class="x" data-act="goal-htx-del" data-id="${g.id}" data-hid="${h.id}">✕</button></div>`).join("")}</div>`:`<p class="msub" style="text-align:center;margin-top:16px">Поступлений пока нет</p>`}
+    <button class="btn danger block" style="margin-top:16px" data-act="goal-del" data-id="${g.id}">Удалить цель</button>`;
+}
+function openJarDetail(id){const j=state.jars.find(x=>x.id===id);if(!j)return;openModal(jarDetailHTML(j));openDetail={t:"jar",id};}
+function openGoalDetail(id){const g=state.goals.find(x=>x.id===id);if(!g)return;openModal(goalDetailHTML(g));openDetail={t:"goal",id};}
+
+function modalTx(kind,id){openDetail=null;
+  const jar=kind!=="goal-earn"?state.jars.find(j=>j.id===id):null;
+  const goal=kind==="goal-earn"?state.goals.find(g=>g.id===id):null;
+  const isW=kind==="jar-withdraw";
+  const title=kind==="goal-earn"?"Записать доход":isW?"Снять из копилки":"Пополнить копилку";
+  const sub=kind==="goal-earn"?goal.name:jar.name;
+  openModal(`<h3>${title}</h3><p class="msub">${esc(sub)}</p>
+    <div class="field"><label>Сумма</label><input id="m_amount" inputmode="decimal" placeholder="0"></div>
+    <div class="field"><label>Заметка (необязательно)</label><input id="m_note" placeholder="комментарий" maxlength="60"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Отмена</button><button class="btn ${isW?"danger":"primary"}" id="m_ok">${isW?"Снять":"Добавить"}</button></div>`);
+  document.getElementById("m_ok").onclick=()=>{const amount=parseAmt(document.getElementById("m_amount").value);const note=document.getElementById("m_note").value.trim();
+    if(!(amount>0))return toast("Введите сумму");
+    if(kind==="goal-earn"){goal.earned+=amount;goal.history.push({id:uid(),amount,date:todayISO(),note});const done=goal.earned>=goal.target;closeModal();renderAll();toast(done?"Цель достигнута! 🎉":"Доход записан");}
+    else if(isW){if(amount>jar.balance)return toast("В копилке столько нет");jar.balance-=amount;jar.history.push({id:uid(),type:"withdraw",amount,date:todayISO(),note});closeModal();renderAll();toast("Снято");}
+    else{jar.balance+=amount;jar.history.push({id:uid(),type:"deposit",amount,date:todayISO(),note});const done=jar.target>0&&jar.balance>=jar.target;closeModal();renderAll();toast(done?"Мешочек полон! 🎉":"Пополнено");}};
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",e=>{
+  const go=e.target.closest("[data-go]"); if(go){showView(go.dataset.go);return;}
+  const back=e.target.closest("[data-back]"); if(back){showView("home");return;}
+  const mBtn=e.target.closest("[data-modal]"); if(mBtn){const t=mBtn.dataset.modal;if(t==="jar")modalJar();if(t==="goal")modalGoal();if(t==="expense")modalExpense();if(t==="earn")modalEarn();if(t==="spend")modalSpend();return;}
+  const a=e.target.closest("[data-act]"); if(!a)return;
+  const act=a.dataset.act,id=a.dataset.id,hid=a.dataset.hid;
+  if(act==="jar-open")openJarDetail(id);
+  else if(act==="goal-open")openGoalDetail(id);
+  else if(act==="jar-deposit")modalTx("jar-deposit",id);
+  else if(act==="jar-withdraw")modalTx("jar-withdraw",id);
+  else if(act==="goal-earn")modalTx("goal-earn",id);
+  else if(act==="jar-del"){const j=state.jars.find(x=>x.id===id);if(!j)return;confirmModal("Удалить копилку?",`«${esc(j.name)}» · накопления ${money(j.balance)} не переносятся.`,()=>{state.jars=state.jars.filter(x=>x.id!==id);renderAll();toast("Копилка удалена");});}
+  else if(act==="goal-del"){const g=state.goals.find(x=>x.id===id);if(!g)return;confirmModal("Удалить цель?",`«${esc(g.name)}»`,()=>{state.goals=state.goals.filter(x=>x.id!==id);renderAll();toast("Цель удалена");});}
+  else if(act==="exp-del"){state.expenses=state.expenses.filter(x=>x.id!==id);renderAll();toast("Трата удалена");}
+  else if(act==="jar-htx-del"){const j=state.jars.find(x=>x.id===id);const h=(j.history||[]).find(x=>x.id===hid);if(h){j.balance=Math.max(0,j.balance+(h.type==="deposit"?-h.amount:h.amount));j.history=j.history.filter(x=>x.id!==hid);renderAll();if(openDetail&&openDetail.t==="jar"&&openDetail.id===id)openJarDetail(id);}}
+  else if(act==="goal-htx-del"){const g=state.goals.find(x=>x.id===id);const h=(g.history||[]).find(x=>x.id===hid);if(h){g.earned=Math.max(0,g.earned-h.amount);g.history=g.history.filter(x=>x.id!==hid);renderAll();if(openDetail&&openDetail.t==="goal"&&openDetail.id===id)openGoalDetail(id);}}
+});
+
+document.getElementById("curSelect").addEventListener("change",e=>{state.currency=e.target.value;renderAll();});
+function applyTheme(){if(state.theme)document.documentElement.setAttribute("data-theme",state.theme);else document.documentElement.removeAttribute("data-theme");}
+document.getElementById("themeBtn").addEventListener("click",()=>{const cur=state.theme||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");state.theme=cur==="dark"?"light":"dark";applyTheme();save();});
+document.getElementById("logoutBtn").addEventListener("click",()=>confirmModal("Выйти из аккаунта?","Данные останутся в облаке — войдите снова в любой момент.",()=>doLogout(),"Выйти"));
+document.getElementById("exportBtn").addEventListener("click",()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`kopilka-${todayISO()}.json`;a.click();URL.revokeObjectURL(a.href);toast("Копия сохранена");});
+document.getElementById("importBtn").addEventListener("click",()=>document.getElementById("importFile").click());
+document.getElementById("importFile").addEventListener("change",e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{state=normalize(JSON.parse(r.result));applyTheme();renderAll();toast("Данные загружены");}catch(err){toast("Не удалось прочитать файл");}};r.readAsText(file);e.target.value="";});
+document.getElementById("resetBtn").addEventListener("click",()=>{confirmModal("Сбросить всё?","Удалить все копилки, цели и траты? Это нельзя отменить.",()=>{state={currency:state.currency,theme:state.theme,jars:[],goals:[],expenses:[]};renderAll();toast("Всё очищено");},"Сбросить");});
+
+applyTheme(); renderAll();
+(async()=>{
+  try{if("indexedDB" in window){_db=await idbOpen();const saved=await idbGet("state");if(saved){state=normalize(saved);applyTheme();renderAll();}else{idbSet("state",state);}}}catch(e){}
+  try{if(navigator.storage&&navigator.storage.persist){await navigator.storage.persist();}}catch(e){}
+  cloudInit(); updateAccountUI();
+  if(cloudOn){try{const{data:{session}}=await sb.auth.getSession();if(session&&session.user){user=session.user;updateAccountUI();await cloudLoad();}else{showAuthGate();}}catch(e){}}
+})();
+</script>
+</body>
+</html>
