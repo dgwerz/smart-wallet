@@ -352,10 +352,12 @@ function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch
 
 /* ---------- облако (Firebase) — вставьте конфиг ниже ---------- */
 const firebaseConfig={
-  apiKey:"",
-  authDomain:"",
-  projectId:"",
-  appId:""
+  apiKey:"AIzaSyCYQxEI9uRImRtwhz5eYlXo6hfHnLzzmNk",
+  authDomain:"smart-wallet-1095f.firebaseapp.com",
+  projectId:"smart-wallet-1095f",
+  storageBucket:"smart-wallet-1095f.firebasestorage.app",
+  messagingSenderId:"773289765273",
+  appId:"1:773289765273:web:4d2bc6dc3c041d5ee04b08"
 };
 let fdb=null,user=null,cloudOn=false,cloudTimer=null;
 function cloudInit(){if(firebaseConfig.apiKey&&firebaseConfig.projectId&&window.firebase){try{firebase.initializeApp(firebaseConfig);fdb=firebase.firestore();cloudOn=true;}catch(e){cloudOn=false;}}}
