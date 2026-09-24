@@ -80,6 +80,21 @@
   .rate-v{font-weight:600; font-variant-numeric:tabular-nums}
   .rates-foot{font-size:11px; color:var(--ink-faint); margin-top:8px; text-align:right}
   .rate-empty{font-size:13px; color:var(--ink-soft); padding:6px 0}
+  .news-row{display:flex; align-items:baseline; gap:10px; padding:9px 0; border-bottom:1px solid var(--line-soft); text-decoration:none; color:var(--ink)}
+  .news-row:last-of-type{border-bottom:none}
+  .news-row:hover .news-t{color:var(--green)}
+  .news-t{font-size:13.5px; font-weight:500; line-height:1.35; flex:1}
+  .news-m{font-size:11px; color:var(--ink-faint); white-space:nowrap; flex:none}
+  .conv-card{max-width:440px; margin:26px auto 0; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px}
+  .conv-title{font-family:var(--display); font-weight:600; font-size:15px; margin-bottom:12px}
+  .conv-amt{width:100%; font-family:var(--sans); font-size:18px; font-weight:600; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:12px 14px; outline:none; margin-bottom:10px}
+  .conv-amt:focus{border-color:var(--green); box-shadow:0 0 0 3px var(--green-soft)}
+  .conv-row{display:flex; align-items:center; gap:8px}
+  .conv-sel{flex:1; min-width:0; font-family:var(--sans); font-size:14px; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:11px 10px; outline:none; cursor:pointer}
+  .conv-swap{flex:none; width:40px; height:40px; border-radius:11px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; font-size:16px}
+  .conv-swap:hover{background:var(--surface-2)}
+  .conv-result{margin-top:14px; text-align:center; font-size:15px; color:var(--ink-soft)}
+  .conv-result b{font-family:var(--display); font-weight:700; color:var(--gold); font-size:18px}
   .dist-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line-soft)}
   .dist-name{flex:1; min-width:0}
   .dist-name .dn{font-weight:600; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -312,7 +327,18 @@
     <div class="sec-head"><h2>Копилки</h2><span class="count" id="jarsCount"></span></div>
     <div class="pouch-grid" id="jarsList"></div>
 
+    <div class="conv-card">
+      <div class="conv-title">Конвертер валют</div>
+      <input class="conv-amt" id="convAmt" inputmode="decimal" placeholder="Сумма" value="1">
+      <div class="conv-row">
+        <select id="convFrom" class="conv-sel"></select>
+        <button class="conv-swap" id="convSwap" title="Поменять местами">⇅</button>
+        <select id="convTo" class="conv-sel"></select>
+      </div>
+      <div class="conv-result" id="convResult">—</div>
+    </div>
     <div class="rates-card" id="ratesCard"></div>
+    <div class="rates-card" id="newsCard"></div>
 
     <div class="foot">
       <div class="tip">Данные хранятся в базе данных этого браузера. Для надёжности делайте резервную копию.</div>
@@ -416,13 +442,23 @@ function esc(s){return (s??"").toString().replace(/[&<>"']/g,m=>({"&":"&amp;","<
 function plural(n,one,few,many){n=Math.abs(n)%100;const n1=n%10;if(n>10&&n<20)return many;if(n1>1&&n1<5)return few;if(n1===1)return one;return many;}
 function placeText(j){const bank=j.place==="bank";const ic=bank?"🏦":"💵";const nm=(j.placeName||"").trim();return ic+" "+esc(nm||(bank?"Счёт":"Наличка"));}
 const CURS=[{sym:"₸",code:"KZT"},{sym:"$",code:"USD"},{sym:"€",code:"EUR"},{sym:"₽",code:"RUB"},{sym:"£",code:"GBP"}];
+const CONV_CURS=[{code:"USD",name:"доллар США"},{code:"EUR",name:"евро"},{code:"GBP",name:"фунт"},{code:"KZT",name:"тенге"},{code:"RUB",name:"рубль"},{code:"UAH",name:"гривна"},{code:"BYN",name:"бел. рубль"},{code:"GEL",name:"лари"},{code:"UZS",name:"узб. сум"},{code:"KGS",name:"кирг. сом"},{code:"TRY",name:"лира"},{code:"AED",name:"дирхам"},{code:"CNY",name:"юань"},{code:"JPY",name:"иена"},{code:"KRW",name:"вона"},{code:"INR",name:"рупия"},{code:"CAD",name:"кан. доллар"},{code:"AUD",name:"авс. доллар"},{code:"CHF",name:"франк"},{code:"PLN",name:"злотый"}];
 function curCode(sym){const f=CURS.find(c=>c.sym===sym);return f?f.code:"USD";}
 function fmtRate(v){if(v>=100)return nf.format(Math.round(v));if(v>=1)return v.toFixed(2);return v.toFixed(4);}
 function relTime(ts){const d=Math.floor((Date.now()-ts)/60000);if(d<1)return "только что";if(d<60)return d+" мин назад";try{return new Date(ts).toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){return "";}}
 function loadRates(){try{const r=localStorage.getItem("kopilka_rates");if(r)return JSON.parse(r);}catch(e){}return null;}
 let ratesCache=loadRates();
-async function fetchRates(){try{const res=await fetch("https://open.er-api.com/v6/latest/USD");const j=await res.json();if(j&&j.rates){ratesCache={ts:Date.now(),data:j.rates};try{localStorage.setItem("kopilka_rates",JSON.stringify(ratesCache));}catch(e){}renderRates();}}catch(e){}}
+async function fetchRates(){try{const res=await fetch("https://open.er-api.com/v6/latest/USD");const j=await res.json();if(j&&j.rates){ratesCache={ts:Date.now(),data:j.rates};try{localStorage.setItem("kopilka_rates",JSON.stringify(ratesCache));}catch(e){}renderRates();convert();}}catch(e){}}
 function renderRates(){const el=document.getElementById("ratesCard");if(!el)return;const A=curCode(state.currency);const r=ratesCache&&ratesCache.data;let rows="";if(r&&r[A]){rows=CURS.filter(c=>c.code!==A).map(c=>{if(!r[c.code])return "";const v=r[A]/r[c.code];return `<div class="rate-row"><span>1 ${c.sym}</span><span class="rate-v">${fmtRate(v)} ${esc(state.currency)}</span></div>`;}).join("");}const upd=(ratesCache&&ratesCache.ts)?("обновлено "+relTime(ratesCache.ts)):"нет данных — нажмите «обновить»";el.innerHTML=`<div class="rates-head"><span>Курс валют</span><button class="link-btn" id="ratesRefresh">обновить</button></div>${rows||`<div class="rate-empty">Курсы появятся после обновления.</div>`}<div class="rates-foot">${upd}</div>`;const b=document.getElementById("ratesRefresh");if(b)b.onclick=fetchRates;}
+const NEWS_FEED="https://feeds.npr.org/1001/rss.xml";      // американские новости (NPR)
+const NEWS_PROXY="https://api.allorigins.win/raw?url=";     // бесплатный CORS-прокси, без ключа
+function loadNews(){try{const n=localStorage.getItem("kopilka_news");if(n)return JSON.parse(n);}catch(e){}return null;}
+let newsCache=loadNews();
+async function fetchNews(){try{const res=await fetch(NEWS_PROXY+encodeURIComponent(NEWS_FEED));const xml=await res.text();const doc=new DOMParser().parseFromString(xml,"text/xml");const items=[...doc.querySelectorAll("item")].slice(0,7).map(it=>({title:((it.querySelector("title")||{}).textContent||"").trim(),link:((it.querySelector("link")||{}).textContent||"").trim(),date:((it.querySelector("pubDate")||{}).textContent||"").trim()})).filter(x=>x.title&&x.link);if(items.length){newsCache={ts:Date.now(),items};try{localStorage.setItem("kopilka_news",JSON.stringify(newsCache));}catch(e){}renderNews();}}catch(e){}}
+function renderNews(){const el=document.getElementById("newsCard");if(!el)return;const items=(newsCache&&newsCache.items)||[];let rows="";if(items.length){rows=items.map(n=>{const t=Date.parse(n.date);const when=isFinite(t)?relTime(t):"";return `<a class="news-row" href="${esc(n.link)}" target="_blank" rel="noopener noreferrer"><span class="news-t">${esc(n.title)}</span><span class="news-m">${when}</span></a>`;}).join("");}const upd=(newsCache&&newsCache.ts)?("обновлено "+relTime(newsCache.ts)):"нет данных — нажмите «обновить»";el.innerHTML=`<div class="rates-head"><span>Новости 🇺🇸</span><button class="link-btn" id="newsRefresh">обновить</button></div>${rows||`<div class="rate-empty">Новости появятся после обновления.</div>`}<div class="rates-foot">NPR · ${upd}</div>`;const nb=document.getElementById("newsRefresh");if(nb)nb.onclick=fetchNews;}
+function fmtConv(v){if(v>=1000)return nf.format(Math.round(v));if(v>=1)return v.toFixed(2);return v.toFixed(4);}
+function convert(){const el=document.getElementById("convResult");if(!el)return;const fEl=document.getElementById("convFrom"),tEl=document.getElementById("convTo"),aEl=document.getElementById("convAmt");if(!fEl||!tEl||!aEl)return;const amt=parseAmt(aEl.value);const from=fEl.value,to=tEl.value;const r=ratesCache&&ratesCache.data;if(!r||!r[from]||!r[to]){el.textContent="Загрузите курсы (кнопка «обновить» ниже)";return;}if(!isFinite(amt)){el.textContent="—";return;}const res=amt*(r[to]/r[from]);el.innerHTML=`${nf.format(amt)} ${from} = <b>${fmtConv(res)} ${to}</b>`;}
+function initConverter(){const from=document.getElementById("convFrom"),to=document.getElementById("convTo"),amt=document.getElementById("convAmt");if(!from||!to||!amt)return;const opts=CONV_CURS.map(c=>`<option value="${c.code}">${c.code} — ${c.name}</option>`).join("");from.innerHTML=opts;to.innerHTML=opts;from.value=curCode(state.currency);to.value=(from.value==="USD")?"KZT":"USD";amt.addEventListener("input",convert);from.addEventListener("change",convert);to.addEventListener("change",convert);document.getElementById("convSwap").onclick=()=>{const a=from.value;from.value=to.value;to.value=a;convert();};convert();}
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200);}
 
 /* ---- SVG: мешочек (по скетчу) ---- */
@@ -470,7 +506,7 @@ function donutSVG(parts,total){
 }
 
 /* ---------- render ---------- */
-function renderAll(){document.getElementById("curSelect").value=state.currency; renderHome(); renderGoals(); renderExpenses(); renderRates(); save();}
+function renderAll(){document.getElementById("curSelect").value=state.currency; renderHome(); renderGoals(); renderExpenses(); renderRates(); renderNews(); save();}
 
 function renderHome(){
   const totalSaved=state.jars.reduce((s,j)=>s+j.balance,0);
@@ -708,13 +744,13 @@ document.getElementById("importBtn").addEventListener("click",()=>document.getEl
 document.getElementById("importFile").addEventListener("change",e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{state=normalize(JSON.parse(r.result));applyTheme();renderAll();toast("Данные загружены");}catch(err){toast("Не удалось прочитать файл");}};r.readAsText(file);e.target.value="";});
 document.getElementById("resetBtn").addEventListener("click",()=>{confirmModal("Сбросить всё?","Удалить все копилки, цели и траты? Это нельзя отменить.",()=>{state={currency:state.currency,theme:state.theme,jars:[],goals:[],expenses:[]};renderAll();toast("Всё очищено");},"Сбросить");});
 
-applyTheme(); renderAll();
+applyTheme(); renderAll(); initConverter();
 (async()=>{
   try{if("indexedDB" in window){_db=await idbOpen();const saved=await idbGet("state");if(saved){state=normalize(saved);applyTheme();renderAll();}else{idbSet("state",state);}}}catch(e){}
   try{if(navigator.storage&&navigator.storage.persist){await navigator.storage.persist();}}catch(e){}
   cloudInit(); updateAccountUI();
   if(cloudOn){showAuthGate();firebase.auth().onAuthStateChanged(async(u)=>{if(u){user=u;updateAccountUI();hideAuthGate();await cloudLoad();}else{user=null;updateAccountUI();showAuthGate();}});}
-  fetchRates();
+  fetchRates(); fetchNews();
 })();
 </script>
 </body>
