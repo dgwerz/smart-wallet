@@ -210,6 +210,15 @@
   .cat-grid span{display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 4px; border:1px solid var(--line); border-radius:12px; font-size:11px; font-weight:600; color:var(--ink-soft); background:var(--surface-2); transition:.15s}
   .cat-grid span .e{font-size:19px}
   .cat-grid input:checked + span{border-color:var(--brick); background:var(--brick-soft); color:var(--brick)}
+  .pick{display:flex; flex-direction:column; gap:8px; max-height:240px; overflow:auto}
+  .pick label{cursor:pointer}
+  .pick input{position:absolute; opacity:0; pointer-events:none}
+  .pick .pk-inner{display:flex; align-items:center; gap:10px; padding:11px 12px; border:1px solid var(--line); border-radius:12px; background:var(--surface-2); transition:.15s}
+  .pick input:checked + .pk-inner{border-color:var(--brick); background:var(--brick-soft)}
+  .pk-txt{min-width:0}
+  .pk-name{font-weight:600; font-size:14px; display:block}
+  .pk-sub{font-size:11.5px; color:var(--ink-faint); display:block}
+  .pk-bal{margin-left:auto; font-weight:600; font-variant-numeric:tabular-nums; font-size:13px; white-space:nowrap}
   .exp-ic{width:38px;height:38px;border-radius:11px;background:var(--surface-2); display:grid; place-items:center; font-size:18px; flex:none}
 
   .empty{text-align:center; padding:34px 20px; border:1.5px dashed var(--line); border-radius:var(--radius); background:var(--surface-2); color:var(--ink-soft)}
@@ -592,12 +601,17 @@ function modalDistribute(total){openDetail=null;
 
 function modalSpend(){openDetail=null;
   const cats=CATS.map(c=>`<label><input type="radio" name="cat" value="${c.id}" ${c.id==="other"?"checked":""}><span><span class="e">${c.e}</span>${c.name}</span></label>`).join("");
+  const jarPick=state.jars.length?`<div class="field"><label>С какой копилки снять?</label><div class="pick">${state.jars.map((j,i)=>`<label><input type="radio" name="fromjar" value="${j.id}" ${i===0?"checked":""}><span class="pk-inner"><span class="dist-ic"></span><span class="pk-txt"><span class="pk-name">${esc(j.name)}</span><span class="pk-sub">${placeText(j)}</span></span><span class="pk-bal">${money(j.balance)}</span></span></label>`).join("")}<label><input type="radio" name="fromjar" value="none"><span class="pk-inner"><span class="pk-txt"><span class="pk-name">Не списывать</span><span class="pk-sub">просто записать трату</span></span></span></label></div></div>`:"";
   openModal(`<h3>Я потратил 💸</h3><p class="msub">Сколько потратили?</p>
     <div class="field"><label>Сумма</label><input id="m_amount" inputmode="decimal" placeholder="0"></div>
+    ${jarPick}
     <div class="field"><label>Категория (необязательно)</label><div class="cat-grid">${cats}</div></div>
     <div class="field"><label>Заметка (необязательно)</label><input id="m_note" placeholder="на что" maxlength="60"></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Отмена</button><button class="btn primary" id="m_ok">Записать</button></div>`);
-  document.getElementById("m_ok").onclick=()=>{const amount=parseAmt(document.getElementById("m_amount").value);const category=(modalEl.querySelector('input[name="cat"]:checked')||{}).value||"other";const note=document.getElementById("m_note").value.trim();if(!(amount>0))return toast("Введите сумму");state.expenses.push({id:uid(),amount,category,note,date:todayISO()});renderAll();closeModal();toast("Трата записана");};
+  document.getElementById("m_ok").onclick=()=>{const amount=parseAmt(document.getElementById("m_amount").value);const category=(modalEl.querySelector('input[name="cat"]:checked')||{}).value||"other";const note=document.getElementById("m_note").value.trim();if(!(amount>0))return toast("Введите сумму");
+    const sel=(modalEl.querySelector('input[name="fromjar"]:checked')||{}).value;
+    if(sel&&sel!=="none"){const j=state.jars.find(x=>x.id===sel);if(j){if(amount>j.balance)return toast(`В копилке «${j.name}» только ${money(j.balance)}`);j.balance-=amount;j.history.push({id:uid(),type:"withdraw",amount,date:todayISO(),note:"трата"+(note?": "+note:"")});}}
+    state.expenses.push({id:uid(),amount,category,note,date:todayISO()});renderAll();closeModal();toast("Трата записана");};
 }
 
 function jarDetailHTML(j){
