@@ -72,6 +72,14 @@
   .qbtn .qic{font-size:23px}
   .qbtn.earn{background:linear-gradient(135deg, var(--green), var(--green-ink))}
   .qbtn.spend{background:linear-gradient(135deg, #C96A57, var(--brick))}
+  .link-btn{background:none; border:none; color:var(--green); font-family:var(--sans); font-size:12.5px; font-weight:600; cursor:pointer; padding:2px 4px}
+  .rates-card{max-width:440px; margin:26px auto 0; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px}
+  .rates-head{display:flex; align-items:center; justify-content:space-between; font-family:var(--display); font-weight:600; font-size:15px; margin-bottom:8px}
+  .rate-row{display:flex; justify-content:space-between; font-size:14px; padding:6px 0; border-bottom:1px solid var(--line-soft)}
+  .rate-row:last-of-type{border-bottom:none}
+  .rate-v{font-weight:600; font-variant-numeric:tabular-nums}
+  .rates-foot{font-size:11px; color:var(--ink-faint); margin-top:8px; text-align:right}
+  .rate-empty{font-size:13px; color:var(--ink-soft); padding:6px 0}
   .dist-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line-soft)}
   .dist-name{flex:1; min-width:0}
   .dist-name .dn{font-weight:600; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -304,6 +312,8 @@
     <div class="sec-head"><h2>Копилки</h2><span class="count" id="jarsCount"></span></div>
     <div class="pouch-grid" id="jarsList"></div>
 
+    <div class="rates-card" id="ratesCard"></div>
+
     <div class="foot">
       <div class="tip">Данные хранятся в базе данных этого браузера. Для надёжности делайте резервную копию.</div>
       <button class="link-btn" id="exportBtn">⬇ Сохранить копию (.json)</button>
@@ -405,6 +415,14 @@ function clampPct(a,b){if(!b||b<=0)return 0;return Math.min(100,Math.max(0,a/b*1
 function esc(s){return (s??"").toString().replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
 function plural(n,one,few,many){n=Math.abs(n)%100;const n1=n%10;if(n>10&&n<20)return many;if(n1>1&&n1<5)return few;if(n1===1)return one;return many;}
 function placeText(j){const bank=j.place==="bank";const ic=bank?"🏦":"💵";const nm=(j.placeName||"").trim();return ic+" "+esc(nm||(bank?"Счёт":"Наличка"));}
+const CURS=[{sym:"₸",code:"KZT"},{sym:"$",code:"USD"},{sym:"€",code:"EUR"},{sym:"₽",code:"RUB"},{sym:"£",code:"GBP"}];
+function curCode(sym){const f=CURS.find(c=>c.sym===sym);return f?f.code:"USD";}
+function fmtRate(v){if(v>=100)return nf.format(Math.round(v));if(v>=1)return v.toFixed(2);return v.toFixed(4);}
+function relTime(ts){const d=Math.floor((Date.now()-ts)/60000);if(d<1)return "только что";if(d<60)return d+" мин назад";try{return new Date(ts).toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){return "";}}
+function loadRates(){try{const r=localStorage.getItem("kopilka_rates");if(r)return JSON.parse(r);}catch(e){}return null;}
+let ratesCache=loadRates();
+async function fetchRates(){try{const res=await fetch("https://open.er-api.com/v6/latest/USD");const j=await res.json();if(j&&j.rates){ratesCache={ts:Date.now(),data:j.rates};try{localStorage.setItem("kopilka_rates",JSON.stringify(ratesCache));}catch(e){}renderRates();}}catch(e){}}
+function renderRates(){const el=document.getElementById("ratesCard");if(!el)return;const A=curCode(state.currency);const r=ratesCache&&ratesCache.data;let rows="";if(r&&r[A]){rows=CURS.filter(c=>c.code!==A).map(c=>{if(!r[c.code])return "";const v=r[A]/r[c.code];return `<div class="rate-row"><span>1 ${c.sym}</span><span class="rate-v">${fmtRate(v)} ${esc(state.currency)}</span></div>`;}).join("");}const upd=(ratesCache&&ratesCache.ts)?("обновлено "+relTime(ratesCache.ts)):"нет данных — нажмите «обновить»";el.innerHTML=`<div class="rates-head"><span>Курс валют</span><button class="link-btn" id="ratesRefresh">обновить</button></div>${rows||`<div class="rate-empty">Курсы появятся после обновления.</div>`}<div class="rates-foot">${upd}</div>`;const b=document.getElementById("ratesRefresh");if(b)b.onclick=fetchRates;}
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200);}
 
 /* ---- SVG: мешочек (по скетчу) ---- */
@@ -452,7 +470,7 @@ function donutSVG(parts,total){
 }
 
 /* ---------- render ---------- */
-function renderAll(){document.getElementById("curSelect").value=state.currency; renderHome(); renderGoals(); renderExpenses(); save();}
+function renderAll(){document.getElementById("curSelect").value=state.currency; renderHome(); renderGoals(); renderExpenses(); renderRates(); save();}
 
 function renderHome(){
   const totalSaved=state.jars.reduce((s,j)=>s+j.balance,0);
@@ -696,6 +714,7 @@ applyTheme(); renderAll();
   try{if(navigator.storage&&navigator.storage.persist){await navigator.storage.persist();}}catch(e){}
   cloudInit(); updateAccountUI();
   if(cloudOn){showAuthGate();firebase.auth().onAuthStateChanged(async(u)=>{if(u){user=u;updateAccountUI();hideAuthGate();await cloudLoad();}else{user=null;updateAccountUI();showAuthGate();}});}
+  fetchRates();
 })();
 </script>
 </body>
