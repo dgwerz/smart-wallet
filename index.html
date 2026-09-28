@@ -214,7 +214,9 @@
   .r-sub{font-size:11.5px; color:var(--rfaint); letter-spacing:.05em; margin-top:3px; text-transform:uppercase}
   .r-rule{border-top:1.5px dashed var(--rline); margin:10px 0}
   .r-caption{font-size:10.5px; letter-spacing:.1em; color:var(--rfaint); text-align:center; margin:2px 0 8px; text-transform:uppercase}
-  .r-item{display:flex; align-items:flex-end; gap:6px; padding:4px 0}
+  .r-item{padding:5px 0}
+  .r-line{display:flex; align-items:flex-end; gap:6px}
+  .r-when{font-size:10.5px; color:var(--rfaint); margin-top:2px}
   .r-item .nm{white-space:nowrap; max-width:60%; overflow:hidden; text-overflow:ellipsis}
   .r-item .lead{flex:1; border-bottom:1.5px dotted var(--rline); transform:translateY(-3px)}
   .r-item .amt{white-space:nowrap; font-variant-numeric:tabular-nums; font-weight:700}
@@ -491,6 +493,11 @@ function parseAmt(v){v=String(v??"").replace(/\s/g,"").replace(",",".").replace(
 function todayISO(){return new Date().toISOString().slice(0,10);}
 function fmtDate(iso){try{return new Date(iso).toLocaleDateString("ru-RU",{day:"numeric",month:"short"});}catch(e){return iso;}}
 function monthLabel(){return new Date().toLocaleDateString("ru-RU",{month:"long",year:"numeric"});}
+function nowHM(){const d=new Date();return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
+function tsHM(ts){try{const d=new Date(ts);return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}catch(e){return nowHM();}}
+function mkTs(date,time){const t=Date.parse(`${date}T${time||"12:00"}:00`);return isFinite(t)?t:Date.now();}
+function whenTs(e){return e.ts||Date.parse(e.date)||Date.now();}
+function fmtDateTime(ts){try{return new Date(ts).toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){return "";}}
 function sameMonth(iso){const d=new Date(iso),n=new Date();return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth();}
 function daysLeft(iso){const d=new Date(iso),n=new Date();n.setHours(0,0,0,0);return Math.ceil((d-n)/86400000);}
 function clampPct(a,b){if(!b||b<=0)return 0;return Math.min(100,Math.max(0,a/b*100));}
@@ -618,8 +625,8 @@ function renderExpenses(){
 
   const box=document.getElementById("expReceipt");
   if(!state.expenses.length){box.innerHTML=`<div class="receipt"><div class="r-head"><div class="r-shop">КОПИЛКА</div><div class="r-sub">чек расходов</div></div><div class="r-rule"></div><p style="text-align:center;color:var(--rfaint);font-size:12px;padding:14px 0">— пусто —<br>записывайте траты, чтобы видеть,<br>куда уходят деньги</p><div class="r-rule"></div><button class="btn primary receipt-add" data-modal="expense">＋ Добавить трату</button></div>`;return;}
-  const sorted=state.expenses.slice().sort((a,b)=>(b.date+"").localeCompare(a.date+"")||(b.id+"").localeCompare(a.id));
-  const items=sorted.map(e=>{const c=catById(e.category);return `<div class="r-item"><span class="nm" data-act="exp-edit" data-id="${e.id}" style="cursor:pointer">${c.e} ${esc(e.note||c.name)}</span><span class="lead"></span><span class="amt">−${money(e.amount)}</span><button class="rx" data-act="exp-del" data-id="${e.id}" title="Удалить">✕</button></div>`;}).join("");
+  const sorted=state.expenses.slice().sort((a,b)=>whenTs(b)-whenTs(a));
+  const items=sorted.map(e=>{const c=catById(e.category);return `<div class="r-item"><div class="r-line"><span class="nm" data-act="exp-edit" data-id="${e.id}" style="cursor:pointer">${c.e} ${esc(e.note||c.name)}</span><span class="lead"></span><span class="amt">−${money(e.amount)}</span><button class="rx" data-act="exp-del" data-id="${e.id}" title="Удалить">✕</button></div><div class="r-when">${fmtDateTime(whenTs(e))}</div></div>`;}).join("");
   box.innerHTML=`<div class="receipt">
     <div class="r-head"><div class="r-shop">КОПИЛКА</div><div class="r-sub">чек расходов • ${esc(monthLabel())}</div></div>
     <div class="r-rule"></div><div class="r-caption">операции</div>${items}<div class="r-rule"></div>
@@ -683,11 +690,11 @@ function modalExpense(){openDetail=null;
     <div class="field"><label>Сумма</label><input id="m_amount" inputmode="decimal" placeholder="0"></div>
     <div class="field"><label>Категория</label><div class="cat-grid">${cats}</div></div>
     <div class="field"><label>Заметка (необязательно)</label><input id="m_note" placeholder="Напр. обед в кафе" maxlength="60"></div>
-    <div class="field"><label>Дата</label><input id="m_date" type="date" value="${todayISO()}"></div>
+    <div class="field"><label>Дата и время</label><div style="display:flex;gap:8px"><input id="m_date" type="date" value="${todayISO()}" style="flex:1"><input id="m_time" type="time" value="${nowHM()}" style="flex:none;width:118px"></div></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Отмена</button><button class="btn primary" id="m_ok">Добавить</button></div>`);
-  document.getElementById("m_ok").onclick=()=>{const amount=parseAmt(document.getElementById("m_amount").value);const category=(modalEl.querySelector('input[name="cat"]:checked')||{}).value||"other";const note=document.getElementById("m_note").value.trim();const date=document.getElementById("m_date").value||todayISO();
+  document.getElementById("m_ok").onclick=()=>{const amount=parseAmt(document.getElementById("m_amount").value);const category=(modalEl.querySelector('input[name="cat"]:checked')||{}).value||"other";const note=document.getElementById("m_note").value.trim();const date=document.getElementById("m_date").value||todayISO();const time=(document.getElementById("m_time")||{}).value||nowHM();
     if(!(amount>0))return toast("Введите сумму");
-    state.expenses.push({id:uid(),amount,category,note,date});renderAll();closeModal();toast("Трата записана");};
+    state.expenses.push({id:uid(),amount,category,note,date,ts:mkTs(date,time)});renderAll();closeModal();toast("Трата записана");};
 }
 
 function modalEarn(){openDetail=null;
@@ -720,11 +727,12 @@ function modalSpend(){openDetail=null;
     ${jarPick}
     <div class="field"><label>Категория (необязательно)</label><div class="cat-grid">${cats}</div></div>
     <div class="field"><label>Заметка (необязательно)</label><input id="m_note" placeholder="на что" maxlength="60"></div>
+    <div class="field"><label>Когда</label><div style="display:flex;gap:8px"><input id="m_date" type="date" value="${todayISO()}" style="flex:1"><input id="m_time" type="time" value="${nowHM()}" style="flex:none;width:118px"></div></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Отмена</button><button class="btn primary" id="m_ok">Записать</button></div>`);
-  document.getElementById("m_ok").onclick=()=>{const amount=parseAmt(document.getElementById("m_amount").value);const category=(modalEl.querySelector('input[name="cat"]:checked')||{}).value||"other";const note=document.getElementById("m_note").value.trim();if(!(amount>0))return toast("Введите сумму");
+  document.getElementById("m_ok").onclick=()=>{const amount=parseAmt(document.getElementById("m_amount").value);const category=(modalEl.querySelector('input[name="cat"]:checked')||{}).value||"other";const note=document.getElementById("m_note").value.trim();const date=(document.getElementById("m_date")||{}).value||todayISO();const time=(document.getElementById("m_time")||{}).value||nowHM();if(!(amount>0))return toast("Введите сумму");
     const sel=(modalEl.querySelector('input[name="fromjar"]:checked')||{}).value;
-    if(sel&&sel!=="none"){const j=state.jars.find(x=>x.id===sel);if(j){if(amount>j.balance)return toast(`В копилке «${j.name}» только ${money(j.balance)}`);j.balance-=amount;j.history.push({id:uid(),type:"withdraw",amount,date:todayISO(),note:"трата"+(note?": "+note:"")});}}
-    state.expenses.push({id:uid(),amount,category,note,date:todayISO()});renderAll();closeModal();toast("Трата записана");};
+    if(sel&&sel!=="none"){const j=state.jars.find(x=>x.id===sel);if(j){if(amount>j.balance)return toast(`В копилке «${j.name}» только ${money(j.balance)}`);j.balance-=amount;j.history.push({id:uid(),type:"withdraw",amount,date,note:"трата"+(note?": "+note:"")});}}
+    state.expenses.push({id:uid(),amount,category,note,date,ts:mkTs(date,time)});renderAll();closeModal();toast("Трата записана");};
 }
 
 function jarDetailHTML(j){
@@ -891,10 +899,10 @@ function modalExpenseEdit(id){openDetail=null;const e=state.expenses.find(x=>x.i
     <div class="field"><label>Сумма</label><input id="m_amount" inputmode="decimal" value="${e.amount}"></div>
     <div class="field"><label>Категория</label><div class="cat-grid">${cats}</div></div>
     <div class="field"><label>Заметка</label><input id="m_note" maxlength="60" value="${esc(e.note||"")}"></div>
-    <div class="field"><label>Дата</label><input id="m_date" type="date" value="${e.date}"></div>
+    <div class="field"><label>Дата и время</label><div style="display:flex;gap:8px"><input id="m_date" type="date" value="${e.date}" style="flex:1"><input id="m_time" type="time" value="${tsHM(whenTs(e))}" style="flex:none;width:118px"></div></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Отмена</button><button class="btn primary" id="m_ok">Сохранить</button></div>`);
-  document.getElementById("m_ok").onclick=()=>{const amount=parseAmt(document.getElementById("m_amount").value);const category=(modalEl.querySelector('input[name="cat"]:checked')||{}).value||"other";const note=document.getElementById("m_note").value.trim();const date=document.getElementById("m_date").value||e.date;
-    if(!(amount>0))return toast("Введите сумму");e.amount=amount;e.category=category;e.note=note;e.date=date;renderAll();closeModal();toast("Сохранено");};
+  document.getElementById("m_ok").onclick=()=>{const amount=parseAmt(document.getElementById("m_amount").value);const category=(modalEl.querySelector('input[name="cat"]:checked')||{}).value||"other";const note=document.getElementById("m_note").value.trim();const date=document.getElementById("m_date").value||e.date;const time=(document.getElementById("m_time")||{}).value||tsHM(whenTs(e));
+    if(!(amount>0))return toast("Введите сумму");e.amount=amount;e.category=category;e.note=note;e.date=date;e.ts=mkTs(date,time);renderAll();closeModal();toast("Сохранено");};
 }
 
 /* ---------- импорт CSV ---------- */
@@ -914,7 +922,7 @@ function csvMap(text){let rows;try{rows=csvParse(text);}catch(e){toast("Не у�
     <div class="field"><label>Сумма</label>${sel("csvAmt",gAmt>=0?gAmt:1)}</div>
     <div class="field"><label>Описание</label>${sel("csvDesc",gDesc>=0?gDesc:2)}</div>
     <button class="btn primary block" id="csvGo">Импортировать траты</button>`;
-  document.getElementById("csvGo").onclick=()=>{const di=+document.getElementById("csvDate").value,ai=+document.getElementById("csvAmt").value,ci=+document.getElementById("csvDesc").value;let added=0;for(let k=1;k<rows.length;k++){const r=rows[k];const raw=(r[ai]||"").replace(/\s/g,"").replace(",",".").replace(/[^\d.\-]/g,"");let amt=parseFloat(raw);if(!isFinite(amt))continue;amt=Math.abs(amt);if(amt<=0)continue;const date=parseCsvDate(r[di])||todayISO();const note=(r[ci]||"").trim().slice(0,60);state.expenses.push({id:uid(),amount:amt,category:"other",note,date});added++;}renderAll();closeModal();toast(added?`Импортировано трат: ${added}`:"Ничего не добавлено");};
+  document.getElementById("csvGo").onclick=()=>{const di=+document.getElementById("csvDate").value,ai=+document.getElementById("csvAmt").value,ci=+document.getElementById("csvDesc").value;let added=0;for(let k=1;k<rows.length;k++){const r=rows[k];const raw=(r[ai]||"").replace(/\s/g,"").replace(",",".").replace(/[^\d.\-]/g,"");let amt=parseFloat(raw);if(!isFinite(amt))continue;amt=Math.abs(amt);if(amt<=0)continue;const date=parseCsvDate(r[di])||todayISO();const note=(r[ci]||"").trim().slice(0,60);state.expenses.push({id:uid(),amount:amt,category:"other",note,date,ts:mkTs(date,"12:00")});added++;}renderAll();closeModal();toast(added?`Импортировано трат: ${added}`:"Ничего не добавлено");};
 }
 
 /* ---------- график курса за период (Frankfurter) ---------- */
