@@ -313,6 +313,9 @@
   .rep-line{display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-soft); font-size:14px}
   .rep-line:last-child{border-bottom:none}
   .rep-line b{font-family:var(--display); font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap}
+  .rep-tabs{display:flex; gap:6px; padding:5px; background:var(--surface-2); border:1px solid var(--line); border-radius:14px; margin-bottom:16px}
+  .rep-tab{flex:1; border:none; background:transparent; cursor:pointer; font-family:var(--sans); font-size:13.5px; font-weight:600; color:var(--ink-soft); padding:9px 8px; border-radius:10px; transition:.15s}
+  .rep-tab.active{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
   /* спарклайн курса */
   .conv-spark{width:100%; height:44px; display:block; margin-top:12px}
   .conv-spark-lab{font-size:11px; color:var(--ink-faint); text-align:center; margin-top:2px}
@@ -435,6 +438,7 @@
 "use strict";
 const STORE_KEY="kopilka_state_v1";
 const nf=new Intl.NumberFormat("ru-RU");
+const nfM=new Intl.NumberFormat("ru-RU",{minimumFractionDigits:0,maximumFractionDigits:2});
 const CATS=[
   {id:"food",name:"Еда",e:"🍔",color:"#E8894A"},{id:"transport",name:"Транспорт",e:"🚗",color:"#4A90D9"},
   {id:"home",name:"Жильё",e:"🏠",color:"#7C6BD6"},{id:"fun",name:"Досуг",e:"🎮",color:"#E85A8A"},
@@ -488,8 +492,8 @@ function renderAuthGate(mode){const g=document.getElementById("authGate");g.inne
 }
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
-function money(n){return nf.format(Math.round(n))+" "+state.currency;}
-function parseAmt(v){v=String(v??"").replace(/\s/g,"").replace(",",".").replace(/[^\d.]/g,"");const n=parseFloat(v);return isFinite(n)?n:NaN;}
+function money(n){return nfM.format(n)+" "+state.currency;}
+function parseAmt(v){v=String(v??"").replace(/\s/g,"").replace(",",".").replace(/[^\d.]/g,"");const n=parseFloat(v);return isFinite(n)?Math.round(n*100)/100:NaN;}
 function todayISO(){return new Date().toISOString().slice(0,10);}
 function fmtDate(iso){try{return new Date(iso).toLocaleDateString("ru-RU",{day:"numeric",month:"short"});}catch(e){return iso;}}
 function monthLabel(){return new Date().toLocaleDateString("ru-RU",{month:"long",year:"numeric"});}
@@ -714,7 +718,7 @@ function modalDistribute(total){openDetail=null;
   const inputs=[...modalEl.querySelectorAll(".dist-inp")];
   function upd(){const sum=inputs.reduce((s,i)=>s+(parseAmt(i.value)||0),0);const rem=total-sum;const el=document.getElementById("distRemain");el.className="dist-remain"+(rem<0?" over":(rem===0?" ok":""));el.textContent=rem===0?"Всё распределено ✓":rem<0?`Перебор на ${money(-rem)}`:`Осталось ${money(rem)}`;}
   inputs.forEach(i=>i.addEventListener("input",upd)); upd();
-  document.getElementById("d_even").onclick=()=>{const n=inputs.length;const each=Math.floor(total/n);inputs.forEach((i,idx)=>i.value=String(idx===n-1?total-each*(n-1):each));upd();};
+  document.getElementById("d_even").onclick=()=>{const n=inputs.length;const each=Math.floor(total/n*100)/100;inputs.forEach((i,idx)=>i.value=String(idx===n-1?Math.round((total-each*(n-1))*100)/100:each));upd();};
   document.getElementById("m_ok").onclick=()=>{let any=false,filled=false;inputs.forEach(inp=>{const amt=parseAmt(inp.value);if(amt>0){const j=state.jars.find(x=>x.id===inp.dataset.jid);if(j){j.balance+=amt;j.history.push({id:uid(),type:"deposit",amount:amt,date:todayISO(),note:"заработок"});any=true;if(j.target>0&&j.balance>=j.target)filled=true;}}});
     if(!any)return toast("Укажите хотя бы одну сумму");closeModal();renderAll();if(filled)celebrate();toast("Заработок распределён 🎉");};
 }
@@ -844,22 +848,49 @@ function modalPayment(id){openDetail=null;const p=id?state.payments.find(x=>x.id
 }
 
 /* ---------- отчёт ---------- */
+let reportPeriod="month";
+let reportShow="both";
+function reportBuckets(period){const now=new Date();const b=[];
+  if(period==="day"){for(let i=13;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);b.push({start:d,end:new Date(d.getFullYear(),d.getMonth(),d.getDate()+1),label:String(d.getDate())});}}
+  else if(period==="week"){const wd=(now.getDay()+6)%7;const mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-wd);for(let i=7;i>=0;i--){const s=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()-i*7);b.push({start:s,end:new Date(s.getFullYear(),s.getMonth(),s.getDate()+7),label:s.getDate()+"."+(s.getMonth()+1)});}}
+  else{for(let i=5;i>=0;i--){const s=new Date(now.getFullYear(),now.getMonth()-i,1);b.push({start:s,end:new Date(now.getFullYear(),now.getMonth()-i+1,1),label:s.toLocaleDateString("ru-RU",{month:"short"})});}}
+  return b;}
 function renderReport(){const box=document.getElementById("reportBody");if(!box)return;
-  const now=new Date();const months=[];for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({y:d.getFullYear(),m:d.getMonth(),label:d.toLocaleDateString("ru-RU",{month:"short"})});}
-  const inM=(iso,my)=>{const d=new Date(iso);return d.getFullYear()===my.y&&d.getMonth()===my.m;};
-  const income=months.map(my=>{let s=0;state.jars.forEach(j=>(j.history||[]).forEach(h=>{if(h.type==="deposit"&&inM(h.date,my))s+=h.amount;}));state.goals.forEach(g=>(g.history||[]).forEach(h=>{if(inM(h.date,my))s+=h.amount;}));return s;});
-  const expense=months.map(my=>{let s=0;state.expenses.forEach(e=>{if(inM(e.date,my))s+=e.amount;});return s;});
-  const maxV=Math.max(1,...income,...expense);
-  const bars=months.map((my,i)=>`<div class="rep-col"><div class="rep-bars"><div class="rep-bar in" style="height:${income[i]/maxV*100}%"></div><div class="rep-bar out" style="height:${expense[i]/maxV*100}%"></div></div><div class="rep-lab">${my.label}</div></div>`).join("");
-  const dnow=now.getDate();const dim=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();const spentThis=expense[expense.length-1];const forecast=dnow>0?spentThis/dnow*dim:spentThis;
+  const buckets=reportBuckets(reportPeriod);
+  const inB=(t,bk)=>isFinite(t)&&t>=bk.start.getTime()&&t<bk.end.getTime();
+  const income=buckets.map(bk=>{let s=0;state.jars.forEach(j=>(j.history||[]).forEach(h=>{if(h.type==="deposit"&&inB(Date.parse(h.date),bk))s+=h.amount;}));state.goals.forEach(g=>(g.history||[]).forEach(h=>{if(inB(Date.parse(h.date),bk))s+=h.amount;}));return s;});
+  const expense=buckets.map(bk=>{let s=0;state.expenses.forEach(e=>{if(inB(whenTs(e),bk))s+=e.amount;});return s;});
+  const showIn=reportShow!=="expense",showOut=reportShow!=="income";
+  const maxV=Math.max(1,...(showIn?income:[0]),...(showOut?expense:[0]));
+  const bars=buckets.map((bk,i)=>`<div class="rep-col"><div class="rep-bars">${showIn?`<div class="rep-bar in" style="height:${income[i]/maxV*100}%" title="доход ${money(income[i])}"></div>`:""}${showOut?`<div class="rep-bar out" style="height:${expense[i]/maxV*100}%" title="траты ${money(expense[i])}"></div>`:""}</div><div class="rep-lab">${bk.label}</div></div>`).join("");
+  const chartTitle=reportShow==="income"?"Доходы":reportShow==="expense"?"Траты":"Доходы и траты";
+  const legend=`${showIn?`<span><i class="in"></i>доходы</span>`:""}${showOut?`<span><i class="out"></i>траты</span>`:""}`;
+  const totIn=income.reduce((a,c)=>a+c,0),totOut=expense.reduce((a,c)=>a+c,0);
+  const pLabel=reportPeriod==="day"?"14 дней":reportPeriod==="week"?"8 недель":"6 месяцев";
+  const now=new Date();const dnow=now.getDate();const dim=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();const spentThis=state.expenses.filter(e=>sameMonth(e.date)).reduce((a,e)=>a+e.amount,0);const forecast=dnow>0?spentThis/dnow*dim:spentThis;
   const etas=state.goals.filter(g=>g.earned<g.target&&(g.history||[]).length).map(g=>{const first=g.history[0];const days=Math.max(1,Math.ceil((Date.now()-new Date(first.date))/86400000));const rate=g.earned/days;const left=g.target-g.earned;const eta=rate>0?Math.ceil(left/rate):null;return {name:g.name,eta};}).filter(x=>x.eta);
-  box.innerHTML=`<div class="chart-card"><div class="chart-title">Доходы и траты по месяцам</div><div class="rep-chart">${bars}</div><div class="rep-legend"><span><i class="in"></i>доходы</span><span><i class="out"></i>траты</span></div></div>
-    <div class="chart-card"><div class="chart-title">Прогноз</div>
+  box.innerHTML=`<div class="rep-tabs">
+      <button class="rep-tab ${reportPeriod==="day"?"active":""}" data-period="day">По дням</button>
+      <button class="rep-tab ${reportPeriod==="week"?"active":""}" data-period="week">По неделям</button>
+      <button class="rep-tab ${reportPeriod==="month"?"active":""}" data-period="month">По месяцам</button>
+    </div>
+    <div class="rep-tabs">
+      <button class="rep-tab ${reportShow==="both"?"active":""}" data-show="both">Всё</button>
+      <button class="rep-tab ${reportShow==="income"?"active":""}" data-show="income">Доходы</button>
+      <button class="rep-tab ${reportShow==="expense"?"active":""}" data-show="expense">Расходы</button>
+    </div>
+    <div class="chart-card"><div class="chart-title">${chartTitle} · ${pLabel}</div><div class="rep-chart">${bars}</div><div class="rep-legend">${legend}</div></div>
+    <div class="chart-card"><div class="chart-title">Итого за период</div>
+      <div class="rep-line"><span>Заработано</span><b style="color:var(--green)">${money(totIn)}</b></div>
+      <div class="rep-line"><span>Потрачено</span><b style="color:var(--brick)">${money(totOut)}</b></div>
+      <div class="rep-line"><span>Остаток</span><b>${money(totIn-totOut)}</b></div>
+    </div>
+    <div class="chart-card"><div class="chart-title">Прогноз (текущий месяц)</div>
       <div class="rep-line"><span>Прогноз трат за месяц</span><b>${money(forecast)}</b></div>
       <div class="rep-line"><span>Уже потрачено</span><b>${money(spentThis)}</b></div>
-      <div class="rep-line"><span>Доход за месяц</span><b>${money(income[income.length-1])}</b></div>
       ${etas.length?etas.map(e=>`<div class="rep-line"><span>${esc(e.name)} — до цели</span><b>~${e.eta} дн</b></div>`).join(""):`<div class="rep-line"><span>Целей в процессе нет</span><b>—</b></div>`}
     </div>`;
+  box.querySelectorAll(".rep-tab").forEach(btn=>btn.onclick=()=>{if(btn.dataset.period)reportPeriod=btn.dataset.period;if(btn.dataset.show)reportShow=btn.dataset.show;renderReport();});
 }
 
 /* ---------- перевод между копилками ---------- */
