@@ -316,6 +316,29 @@
   .rep-tabs{display:flex; gap:6px; padding:5px; background:var(--surface-2); border:1px solid var(--line); border-radius:14px; margin-bottom:16px}
   .rep-tab{flex:1; border:none; background:transparent; cursor:pointer; font-family:var(--sans); font-size:13.5px; font-weight:600; color:var(--ink-soft); padding:9px 8px; border-radius:10px; transition:.15s}
   .rep-tab.active{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
+  .day-list{max-height:340px; overflow:auto}
+  .day-head,.day-row{display:grid; grid-template-columns:1fr auto auto; gap:12px; align-items:baseline; padding:8px 0; border-bottom:1px solid var(--line-soft)}
+  .day-head{font-size:10.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em}
+  .day-row:last-child{border-bottom:none}
+  .day-d{font-size:13.5px; color:var(--ink)}
+  .day-in{color:var(--green); font-weight:600; font-variant-numeric:tabular-nums; min-width:86px; text-align:right}
+  .day-out{color:var(--brick); font-weight:600; font-variant-numeric:tabular-nums; min-width:86px; text-align:right}
+  .day-head .day-in,.day-head .day-out{color:var(--ink-faint); font-weight:600}
+  .rep-presets{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px}
+  .rep-preset{border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); font-family:var(--sans); font-size:12.5px; font-weight:600; padding:7px 12px; border-radius:99px; cursor:pointer; transition:.15s}
+  .rep-preset:hover{background:var(--surface-2)}
+  .rep-preset.active{background:var(--green-soft); border-color:transparent; color:var(--green-ink)}
+  .rep-range{display:flex; gap:10px; margin-bottom:14px}
+  .rep-range label{flex:1; display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--ink-faint); font-weight:600}
+  .rep-range input{font-family:var(--sans); font-size:14px; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:9px 10px; outline:none}
+  .rep-range input:focus{border-color:var(--green); box-shadow:0 0 0 3px var(--green-soft)}
+  .rev-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line-soft)}
+  .rev-name{flex:1; min-width:0}
+  .rev-name .dn{font-weight:600; font-size:14.5px}
+  .exp-chips{display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 2px}
+  .exp-chip{border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); font-family:var(--sans); font-size:12.5px; font-weight:600; padding:6px 11px; border-radius:99px; cursor:pointer; display:inline-flex; gap:5px; align-items:center}
+  .exp-chip.active{background:var(--brick-soft); border-color:transparent; color:var(--brick)}
+  .r-day{display:flex; justify-content:space-between; font-weight:700; font-size:12px; color:var(--rink); margin:12px 0 4px; border-top:1.5px dashed var(--rline); padding-top:8px}
   /* спарклайн курса */
   .conv-spark{width:100%; height:44px; display:block; margin-top:12px}
   .conv-spark-lab{font-size:11px; color:var(--ink-faint); text-align:center; margin-top:2px}
@@ -391,6 +414,7 @@
 
     <div class="foot">
       <div class="tip">Данные хранятся в базе данных этого браузера. Для надёжности делайте резервную копию.</div>
+      <button class="link-btn" id="reviewBtn">🧮 Сверка кошельков</button>
       <button class="link-btn" id="exportBtn">⬇ Сохранить копию (.json)</button>
       <button class="link-btn" id="importBtn">⬆ Загрузить копию</button>
       <button class="link-btn" id="resetBtn">🗑 Сбросить всё</button>
@@ -449,8 +473,8 @@ const catById=id=>CATS.find(c=>c.id===id)||CATS[CATS.length-1];
 let _svgN=0;
 
 let state=loadLocal();
-function loadLocal(){try{const raw=localStorage.getItem(STORE_KEY);if(raw)return normalize(JSON.parse(raw));}catch(e){console.warn("read fail",e);}return {currency:"₸",theme:null,jars:[],goals:[],expenses:[],payments:[]};}
-function normalize(s){s=s||{};s.currency=s.currency||"₸";s.jars=Array.isArray(s.jars)?s.jars:[];s.goals=Array.isArray(s.goals)?s.goals:[];s.expenses=Array.isArray(s.expenses)?s.expenses:[];s.payments=Array.isArray(s.payments)?s.payments:[];s.jars.forEach(j=>{if(j.place!=="bank"&&j.place!=="cash")j.place="cash";if(typeof j.placeName!=="string")j.placeName="";});return s;}
+function loadLocal(){try{const raw=localStorage.getItem(STORE_KEY);if(raw)return normalize(JSON.parse(raw));}catch(e){console.warn("read fail",e);}return {currency:"₸",theme:null,jars:[],goals:[],expenses:[],payments:[],lastReview:""};}
+function normalize(s){s=s||{};s.currency=s.currency||"₸";s.jars=Array.isArray(s.jars)?s.jars:[];s.goals=Array.isArray(s.goals)?s.goals:[];s.expenses=Array.isArray(s.expenses)?s.expenses:[];s.payments=Array.isArray(s.payments)?s.payments:[];s.lastReview=s.lastReview||"";s.jars.forEach(j=>{if(j.place!=="bank"&&j.place!=="cash")j.place="cash";if(typeof j.placeName!=="string")j.placeName="";});return s;}
 let _db=null;
 function idbOpen(){return new Promise((res,rej)=>{try{const rq=indexedDB.open("kopilka_db",1);rq.onupgradeneeded=()=>rq.result.createObjectStore("kv");rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error);}catch(e){rej(e);}});}
 function idbGet(k){return new Promise(res=>{if(!_db)return res(null);try{const r=_db.transaction("kv","readonly").objectStore("kv").get(k);r.onsuccess=()=>res(r.result==null?null:r.result);r.onerror=()=>res(null);}catch(e){res(null);}});}
@@ -470,7 +494,7 @@ let fdb=null,user=null,cloudOn=false,cloudTimer=null;
 function cloudInit(){if(firebaseConfig.apiKey&&firebaseConfig.projectId&&window.firebase){try{firebase.initializeApp(firebaseConfig);fdb=firebase.firestore();cloudOn=true;}catch(e){cloudOn=false;}}}
 function cloudPush(){if(!cloudOn||!user)return;clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudPushNow,700);}
 async function cloudPushNow(){if(!cloudOn||!user)return;try{await fdb.collection("states").doc(user.uid).set({data:state,updatedAt:Date.now()});}catch(e){}}
-async function cloudLoad(){try{const doc=await fdb.collection("states").doc(user.uid).get();if(doc.exists&&doc.data()&&doc.data().data){state=normalize(doc.data().data);}else{await cloudPushNow();}applyTheme();renderAll();updateAccountUI();}catch(e){toast("Не удалось загрузить из облака");}}
+async function cloudLoad(){try{const doc=await fdb.collection("states").doc(user.uid).get();if(doc.exists&&doc.data()&&doc.data().data){state=normalize(doc.data().data);}else{await cloudPushNow();}applyTheme();renderAll();updateAccountUI();maybeReview();}catch(e){toast("Не удалось загрузить из облака");}}
 function updateAccountUI(){const b=document.getElementById("logoutBtn");if(b)b.style.display=(cloudOn&&user)?"grid":"none";}
 function authErr(e){const c=(e&&e.code)||"";if(c.includes("invalid-credential")||c.includes("wrong-password")||c.includes("user-not-found"))return "Неверный email или пароль";if(c.includes("email-already-in-use"))return "Этот email уже зарегистрирован";if(c.includes("weak-password"))return "Пароль слишком короткий (минимум 6 символов)";if(c.includes("invalid-email"))return "Неверный email";if(c.includes("network"))return "Нет соединения";return (e&&e.message)||"Ошибка";}
 async function authSignIn(email,pass){try{await firebase.auth().signInWithEmailAndPassword(email,pass);return null;}catch(e){return e;}}
@@ -614,30 +638,51 @@ function renderGoals(){
   }).join("");
 }
 
+let expPreset="month",expFrom=null,expTo=null,expCats=CATS.map(c=>c.id);
+function expApplyPreset(p){const now=new Date();const t=ymd(now);expPreset=p;
+  if(p==="today")expFrom=expTo=t;
+  else if(p==="yesterday"){const y=new Date(now);y.setDate(y.getDate()-1);expFrom=expTo=ymd(y);}
+  else if(p==="7"){const s=new Date(now);s.setDate(s.getDate()-6);expFrom=ymd(s);expTo=t;}
+  else if(p==="30"){const s=new Date(now);s.setDate(s.getDate()-29);expFrom=ymd(s);expTo=t;}
+  else if(p==="month"){expFrom=ymd(new Date(now.getFullYear(),now.getMonth(),1));expTo=t;}
+  else if(p==="all"){const ds=state.expenses.map(e=>(e.date||"").slice(0,10)).filter(Boolean).sort();expFrom=ds.length?ds[0]:t;expTo=t;}
+}
+function wireExpFilter(){const cb=document.getElementById("expChart");if(!cb)return;
+  cb.querySelectorAll("[data-ep]").forEach(b=>b.onclick=()=>{expApplyPreset(b.dataset.ep);renderExpenses();});
+  cb.querySelectorAll("[data-ec]").forEach(b=>b.onclick=()=>{const v=b.dataset.ec;if(v==="all"){expCats=CATS.map(c=>c.id);}else if(expCats.includes(v)){expCats=expCats.filter(x=>x!==v);}else{expCats=expCats.concat(v);}renderExpenses();});
+  const f=document.getElementById("expFromI"),t=document.getElementById("expToI");
+  if(f)f.onchange=()=>{expFrom=f.value||expFrom;expPreset="custom";renderExpenses();};
+  if(t)t.onchange=()=>{expTo=t.value||expTo;expPreset="custom";renderExpenses();};
+}
 function renderExpenses(){
-  const month=state.expenses.filter(e=>sameMonth(e.date));
-  const monthTotal=month.reduce((s,e)=>s+e.amount,0);
-  const allTotal=state.expenses.reduce((s,e)=>s+e.amount,0);
-  const chartBox=document.getElementById("expChart");
-  const byCat={};month.forEach(e=>{byCat[e.category]=(byCat[e.category]||0)+e.amount;});
+  const chartBox=document.getElementById("expChart");const box=document.getElementById("expReceipt");
+  if(!expFrom||!expTo)expApplyPreset("month");
+  if(expFrom>expTo){const x=expFrom;expFrom=expTo;expTo=x;}
+  const from=expFrom,to=expTo;
+  const presets=[["today","Сегодня"],["yesterday","Вчера"],["7","7 дней"],["30","30 дней"],["month","Этот месяц"],["all","Всё время"]].map(([p,l])=>`<button class="rep-preset ${expPreset===p?"active":""}" data-ep="${p}">${l}</button>`).join("");
+  const allSel=expCats.length===CATS.length;
+  const chips=`<button class="exp-chip ${allSel?"active":""}" data-ec="all">Все</button>`+CATS.map(c=>`<button class="exp-chip ${expCats.includes(c.id)?"active":""}" data-ec="${c.id}"><span>${c.e}</span>${c.name}</button>`).join("");
+  const filtered=state.expenses.filter(e=>{const d=(e.date||"").slice(0,10);return d>=from&&d<=to&&expCats.includes(e.category);});
+  const total=filtered.reduce((a,e)=>a+e.amount,0);
+  let chart=`<div class="chart-card"><div class="chart-title">Фильтр трат</div><div class="rep-presets">${presets}</div><div class="rep-range"><label>С<input type="date" id="expFromI" value="${from}"></label><label>По<input type="date" id="expToI" value="${to}"></label></div><div class="exp-chips">${chips}</div><div class="rep-line" style="margin-top:12px"><span>Потрачено за период</span><b style="color:var(--brick)">${money(total)}</b></div></div>`;
+  const byCat={};filtered.forEach(e=>{byCat[e.category]=(byCat[e.category]||0)+e.amount;});
   const entries=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
-  if(entries.length){
-    const parts=entries.map(([cid,v])=>({...catById(cid),val:v}));
-    const legend=parts.map(p=>`<div class="leg-row"><span class="leg-dot" style="background:${p.color}"></span><span class="leg-name">${p.e} ${p.name}</span><span class="leg-val">${money(p.val)}</span><span class="leg-pct">${Math.round(p.val/monthTotal*100)}%</span></div>`).join("");
-    chartBox.innerHTML=`<div class="chart-card"><div class="chart-title">Куда уходят деньги · ${esc(monthLabel())}</div><div class="chart-wrap">${donutSVG(parts,monthTotal)}<div class="legend">${legend}</div></div></div>`;
-  } else chartBox.innerHTML="";
+  if(entries.length){const parts=entries.map(([cid,v])=>({...catById(cid),val:v}));const legend=parts.map(p=>`<div class="leg-row"><span class="leg-dot" style="background:${p.color}"></span><span class="leg-name">${p.e} ${p.name}</span><span class="leg-val">${money(p.val)}</span><span class="leg-pct">${Math.round(p.val/total*100)}%</span></div>`).join("");chart+=`<div class="chart-card"><div class="chart-title">Куда уходят деньги</div><div class="chart-wrap">${donutSVG(parts,total)}<div class="legend">${legend}</div></div></div>`;}
+  chartBox.innerHTML=chart;
+  wireExpFilter();
 
-  const box=document.getElementById("expReceipt");
-  if(!state.expenses.length){box.innerHTML=`<div class="receipt"><div class="r-head"><div class="r-shop">КОПИЛКА</div><div class="r-sub">чек расходов</div></div><div class="r-rule"></div><p style="text-align:center;color:var(--rfaint);font-size:12px;padding:14px 0">— пусто —<br>записывайте траты, чтобы видеть,<br>куда уходят деньги</p><div class="r-rule"></div><button class="btn primary receipt-add" data-modal="expense">＋ Добавить трату</button></div>`;return;}
-  const sorted=state.expenses.slice().sort((a,b)=>whenTs(b)-whenTs(a));
-  const items=sorted.map(e=>{const c=catById(e.category);return `<div class="r-item"><div class="r-line"><span class="nm" data-act="exp-edit" data-id="${e.id}" style="cursor:pointer">${c.e} ${esc(e.note||c.name)}</span><span class="lead"></span><span class="amt">−${money(e.amount)}</span><button class="rx" data-act="exp-del" data-id="${e.id}" title="Удалить">✕</button></div><div class="r-when">${fmtDateTime(whenTs(e))}</div></div>`;}).join("");
+  if(!filtered.length){box.innerHTML=`<div class="receipt"><div class="r-head"><div class="r-shop">КОПИЛКА</div><div class="r-sub">чек расходов</div></div><div class="r-rule"></div><p style="text-align:center;color:var(--rfaint);font-size:12px;padding:14px 0">${state.expenses.length?"За выбранный период/категории<br>ничего не найдено":"— пусто —<br>записывайте траты, чтобы видеть,<br>куда уходят деньги"}</p><div class="r-rule"></div><button class="btn primary receipt-add" data-modal="expense">＋ Добавить трату</button></div>`;return;}
+  const byDay={};filtered.forEach(e=>{const d=(e.date||"").slice(0,10);(byDay[d]=byDay[d]||[]).push(e);});
+  const days=Object.keys(byDay).sort((a,b)=>b.localeCompare(a));
+  const groups=days.map(d=>{const its=byDay[d].slice().sort((a,b)=>whenTs(b)-whenTs(a));const dt=its.reduce((a,e)=>a+e.amount,0);
+    const rows=its.map(e=>{const c=catById(e.category);return `<div class="r-item"><div class="r-line"><span class="nm" data-act="exp-edit" data-id="${e.id}" style="cursor:pointer">${c.e} ${esc(e.note||c.name)}</span><span class="lead"></span><span class="amt">−${money(e.amount)}</span><button class="rx" data-act="exp-del" data-id="${e.id}" title="Удалить">✕</button></div><div class="r-when">${new Date(whenTs(e)).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})}</div></div>`;}).join("");
+    return `<div class="r-day"><span>${fmtDate(d)}</span><span>−${money(dt)}</span></div>${rows}`;}).join("");
   box.innerHTML=`<div class="receipt">
-    <div class="r-head"><div class="r-shop">КОПИЛКА</div><div class="r-sub">чек расходов • ${esc(monthLabel())}</div></div>
-    <div class="r-rule"></div><div class="r-caption">операции</div>${items}<div class="r-rule"></div>
-    <div class="r-total"><span>ИТОГО ЗА МЕСЯЦ</span><span>${money(monthTotal)}</span></div>
-    <div class="r-total sub"><span>за всё время</span><span>${money(allTotal)}</span></div>
+    <div class="r-head"><div class="r-shop">КОПИЛКА</div><div class="r-sub">чек расходов</div></div>
+    <div class="r-rule"></div>${groups}<div class="r-rule"></div>
+    <div class="r-total"><span>ИТОГО ЗА ПЕРИОД</span><span>${money(total)}</span></div>
     <div class="barcode"></div>
-    <div class="r-foot">${sorted.length} ${plural(sorted.length,"операция","операции","операций")} • ${fmtDate(todayISO())}</div>
+    <div class="r-foot">${filtered.length} ${plural(filtered.length,"операция","операции","операций")}</div>
     <button class="btn primary receipt-add" data-modal="expense">＋ Добавить трату</button>
   </div>`;
 }
@@ -848,38 +893,54 @@ function modalPayment(id){openDetail=null;const p=id?state.payments.find(x=>x.id
 }
 
 /* ---------- отчёт ---------- */
-let reportPeriod="month";
 let reportShow="both";
-function reportBuckets(period){const now=new Date();const b=[];
-  if(period==="day"){for(let i=13;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);b.push({start:d,end:new Date(d.getFullYear(),d.getMonth(),d.getDate()+1),label:String(d.getDate())});}}
-  else if(period==="week"){const wd=(now.getDay()+6)%7;const mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-wd);for(let i=7;i>=0;i--){const s=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()-i*7);b.push({start:s,end:new Date(s.getFullYear(),s.getMonth(),s.getDate()+7),label:s.getDate()+"."+(s.getMonth()+1)});}}
-  else{for(let i=5;i>=0;i--){const s=new Date(now.getFullYear(),now.getMonth()-i,1);b.push({start:s,end:new Date(now.getFullYear(),now.getMonth()-i+1,1),label:s.toLocaleDateString("ru-RU",{month:"short"})});}}
-  return b;}
+let reportPreset="month",reportFrom=null,reportTo=null;
+function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function applyPreset(p){const now=new Date();const t=ymd(now);reportPreset=p;
+  if(p==="today"){reportFrom=t;reportTo=t;}
+  else if(p==="yesterday"){const y=new Date(now);y.setDate(y.getDate()-1);reportFrom=reportTo=ymd(y);}
+  else if(p==="7"){const s=new Date(now);s.setDate(s.getDate()-6);reportFrom=ymd(s);reportTo=t;}
+  else if(p==="30"){const s=new Date(now);s.setDate(s.getDate()-29);reportFrom=ymd(s);reportTo=t;}
+  else if(p==="month"){reportFrom=ymd(new Date(now.getFullYear(),now.getMonth(),1));reportTo=t;}
+  else if(p==="all"){const all=dailyBreakdown();reportFrom=all.length?all[all.length-1].date:t;reportTo=t;}
+}
+function buildRangeBuckets(from,to){const fd=new Date(from+"T00:00:00"),td=new Date(to+"T00:00:00");const span=Math.round((td-fd)/86400000)+1;const out=[];if(span<=0)return out;
+  if(span<=31){const d=new Date(fd);for(let i=0;i<span;i++){const s=ymd(d);out.push({label:String(d.getDate()),s,e:s});d.setDate(d.getDate()+1);}}
+  else if(span<=126){const d=new Date(fd);while(d<=td){const s=ymd(d);const ee=new Date(d);ee.setDate(ee.getDate()+6);const e=ymd(ee>td?td:ee);out.push({label:d.getDate()+"."+(d.getMonth()+1),s,e});d.setDate(d.getDate()+7);}}
+  else{const d=new Date(fd.getFullYear(),fd.getMonth(),1);while(d<=td){const mS=ymd(new Date(d.getFullYear(),d.getMonth(),1));const mE=ymd(new Date(d.getFullYear(),d.getMonth()+1,0));out.push({label:d.toLocaleDateString("ru-RU",{month:"short"}),s:mS<from?from:mS,e:mE>to?to:mE});d.setMonth(d.getMonth()+1);}}
+  return out;}
+function dailyBreakdown(){const map={};const add=(d,k,a)=>{if(!d)return;if(!map[d])map[d]={in:0,out:0};map[d][k]+=a;};
+  state.jars.forEach(j=>(j.history||[]).forEach(h=>{if(h.type==="deposit")add((h.date||"").slice(0,10),"in",h.amount);}));
+  state.goals.forEach(g=>(g.history||[]).forEach(h=>add((h.date||"").slice(0,10),"in",h.amount)));
+  state.expenses.forEach(e=>add((e.date||"").slice(0,10),"out",e.amount));
+  return Object.keys(map).sort((a,b)=>b.localeCompare(a)).map(d=>({date:d,in:map[d].in,out:map[d].out}));}
 function renderReport(){const box=document.getElementById("reportBody");if(!box)return;
-  const buckets=reportBuckets(reportPeriod);
-  const inB=(t,bk)=>isFinite(t)&&t>=bk.start.getTime()&&t<bk.end.getTime();
-  const income=buckets.map(bk=>{let s=0;state.jars.forEach(j=>(j.history||[]).forEach(h=>{if(h.type==="deposit"&&inB(Date.parse(h.date),bk))s+=h.amount;}));state.goals.forEach(g=>(g.history||[]).forEach(h=>{if(inB(Date.parse(h.date),bk))s+=h.amount;}));return s;});
-  const expense=buckets.map(bk=>{let s=0;state.expenses.forEach(e=>{if(inB(whenTs(e),bk))s+=e.amount;});return s;});
+  if(!reportFrom||!reportTo)applyPreset("month");
+  if(reportFrom>reportTo){const x=reportFrom;reportFrom=reportTo;reportTo=x;}
+  const from=reportFrom,to=reportTo;
+  const buckets=buildRangeBuckets(from,to);
+  const inR=(d,b)=>d&&d>=b.s&&d<=b.e;
+  const income=buckets.map(b=>{let s=0;state.jars.forEach(j=>(j.history||[]).forEach(h=>{if(h.type==="deposit"&&inR((h.date||"").slice(0,10),b))s+=h.amount;}));state.goals.forEach(g=>(g.history||[]).forEach(h=>{if(inR((h.date||"").slice(0,10),b))s+=h.amount;}));return s;});
+  const expense=buckets.map(b=>{let s=0;state.expenses.forEach(e=>{if(inR((e.date||"").slice(0,10),b))s+=e.amount;});return s;});
   const showIn=reportShow!=="expense",showOut=reportShow!=="income";
   const maxV=Math.max(1,...(showIn?income:[0]),...(showOut?expense:[0]));
-  const bars=buckets.map((bk,i)=>`<div class="rep-col"><div class="rep-bars">${showIn?`<div class="rep-bar in" style="height:${income[i]/maxV*100}%" title="доход ${money(income[i])}"></div>`:""}${showOut?`<div class="rep-bar out" style="height:${expense[i]/maxV*100}%" title="траты ${money(expense[i])}"></div>`:""}</div><div class="rep-lab">${bk.label}</div></div>`).join("");
+  const bars=buckets.length?buckets.map((b,i)=>`<div class="rep-col"><div class="rep-bars">${showIn?`<div class="rep-bar in" style="height:${income[i]/maxV*100}%" title="доход ${money(income[i])}"></div>`:""}${showOut?`<div class="rep-bar out" style="height:${expense[i]/maxV*100}%" title="траты ${money(expense[i])}"></div>`:""}</div><div class="rep-lab">${b.label}</div></div>`).join(""):`<div class="rep-lab" style="padding:24px 0">нет данных</div>`;
   const chartTitle=reportShow==="income"?"Доходы":reportShow==="expense"?"Траты":"Доходы и траты";
   const legend=`${showIn?`<span><i class="in"></i>доходы</span>`:""}${showOut?`<span><i class="out"></i>траты</span>`:""}`;
   const totIn=income.reduce((a,c)=>a+c,0),totOut=expense.reduce((a,c)=>a+c,0);
-  const pLabel=reportPeriod==="day"?"14 дней":reportPeriod==="week"?"8 недель":"6 месяцев";
+  const presets=[["today","Сегодня"],["yesterday","Вчера"],["7","7 дней"],["30","30 дней"],["month","Этот месяц"],["all","Всё время"]].map(([p,l])=>`<button class="rep-preset ${reportPreset===p?"active":""}" data-preset="${p}">${l}</button>`).join("");
   const now=new Date();const dnow=now.getDate();const dim=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();const spentThis=state.expenses.filter(e=>sameMonth(e.date)).reduce((a,e)=>a+e.amount,0);const forecast=dnow>0?spentThis/dnow*dim:spentThis;
   const etas=state.goals.filter(g=>g.earned<g.target&&(g.history||[]).length).map(g=>{const first=g.history[0];const days=Math.max(1,Math.ceil((Date.now()-new Date(first.date))/86400000));const rate=g.earned/days;const left=g.target-g.earned;const eta=rate>0?Math.ceil(left/rate):null;return {name:g.name,eta};}).filter(x=>x.eta);
-  box.innerHTML=`<div class="rep-tabs">
-      <button class="rep-tab ${reportPeriod==="day"?"active":""}" data-period="day">По дням</button>
-      <button class="rep-tab ${reportPeriod==="week"?"active":""}" data-period="week">По неделям</button>
-      <button class="rep-tab ${reportPeriod==="month"?"active":""}" data-period="month">По месяцам</button>
-    </div>
+  const daily=dailyBreakdown().filter(d=>d.date>=from&&d.date<=to);
+  const dailyRows=daily.length?daily.map(d=>`<div class="day-row"><span class="day-d">${fmtDate(d.date)}</span><span class="day-in">${d.in?"+"+money(d.in):"—"}</span><span class="day-out">${d.out?"−"+money(d.out):"—"}</span></div>`).join(""):`<div class="rep-line"><span>За этот период операций нет</span><b>—</b></div>`;
+  box.innerHTML=`<div class="rep-presets">${presets}</div>
+    <div class="rep-range"><label>С<input type="date" id="repFrom" value="${from}"></label><label>По<input type="date" id="repTo" value="${to}"></label></div>
     <div class="rep-tabs">
       <button class="rep-tab ${reportShow==="both"?"active":""}" data-show="both">Всё</button>
       <button class="rep-tab ${reportShow==="income"?"active":""}" data-show="income">Доходы</button>
       <button class="rep-tab ${reportShow==="expense"?"active":""}" data-show="expense">Расходы</button>
     </div>
-    <div class="chart-card"><div class="chart-title">${chartTitle} · ${pLabel}</div><div class="rep-chart">${bars}</div><div class="rep-legend">${legend}</div></div>
+    <div class="chart-card"><div class="chart-title">${chartTitle}</div><div class="rep-chart">${bars}</div><div class="rep-legend">${legend}</div></div>
     <div class="chart-card"><div class="chart-title">Итого за период</div>
       <div class="rep-line"><span>Заработано</span><b style="color:var(--green)">${money(totIn)}</b></div>
       <div class="rep-line"><span>Потрачено</span><b style="color:var(--brick)">${money(totOut)}</b></div>
@@ -889,8 +950,13 @@ function renderReport(){const box=document.getElementById("reportBody");if(!box)
       <div class="rep-line"><span>Прогноз трат за месяц</span><b>${money(forecast)}</b></div>
       <div class="rep-line"><span>Уже потрачено</span><b>${money(spentThis)}</b></div>
       ${etas.length?etas.map(e=>`<div class="rep-line"><span>${esc(e.name)} — до цели</span><b>~${e.eta} дн</b></div>`).join(""):`<div class="rep-line"><span>Целей в процессе нет</span><b>—</b></div>`}
-    </div>`;
-  box.querySelectorAll(".rep-tab").forEach(btn=>btn.onclick=()=>{if(btn.dataset.period)reportPeriod=btn.dataset.period;if(btn.dataset.show)reportShow=btn.dataset.show;renderReport();});
+    </div>
+    <div class="chart-card"><div class="chart-title">По дням (цифрами)</div><div class="day-head"><span>Дата</span><span class="day-in">Заработал</span><span class="day-out">Потратил</span></div><div class="day-list">${dailyRows}</div></div>`;
+  box.querySelectorAll("[data-preset]").forEach(b=>b.onclick=()=>{applyPreset(b.dataset.preset);renderReport();});
+  box.querySelectorAll("[data-show]").forEach(b=>b.onclick=()=>{reportShow=b.dataset.show;renderReport();});
+  const rf=box.querySelector("#repFrom"),rt=box.querySelector("#repTo");
+  if(rf)rf.onchange=()=>{reportFrom=rf.value||from;reportPreset="custom";renderReport();};
+  if(rt)rt.onchange=()=>{reportTo=rt.value||to;reportPreset="custom";renderReport();};
 }
 
 /* ---------- перевод между копилками ---------- */
@@ -966,6 +1032,28 @@ async function fetchHistory(){const fEl=document.getElementById("convFrom"),tEl=
   }catch(e){if(lab)lab.textContent="";}
 }
 
+/* ---------- итоги на главной по периоду ---------- */
+let homePeriod="month";
+function rangeFor(p){const now=new Date();const t=ymd(now);if(p==="today")return[t,t];if(p==="week"){const s=new Date(now);s.setDate(s.getDate()-6);return[ymd(s),t];}if(p==="month")return[ymd(new Date(now.getFullYear(),now.getMonth(),1)),t];return["0000-01-01",t];}
+function periodSums(from,to){let inc=0,exp=0;state.jars.forEach(j=>(j.history||[]).forEach(h=>{if(h.type==="deposit"){const d=(h.date||"").slice(0,10);if(d>=from&&d<=to)inc+=h.amount;}}));state.goals.forEach(g=>(g.history||[]).forEach(h=>{const d=(h.date||"").slice(0,10);if(d>=from&&d<=to)inc+=h.amount;}));state.expenses.forEach(e=>{const d=(e.date||"").slice(0,10);if(d>=from&&d<=to)exp+=e.amount;});return {inc,exp};}
+function renderHomeSummary(){const el=document.getElementById("homeSummary");if(!el)return;const[f,t]=rangeFor(homePeriod);const{inc,exp}=periodSums(f,t);
+  const tabs=[["today","Сегодня"],["week","Неделя"],["month","Месяц"],["all","Всё"]].map(([p,l])=>`<button class="rep-tab ${homePeriod===p?"active":""}" data-hp="${p}">${l}</button>`).join("");
+  el.innerHTML=`<div class="chart-title" style="margin-bottom:10px">Заработок и траты</div><div class="rep-tabs" style="margin-bottom:12px">${tabs}</div><div class="rep-line"><span>Заработано</span><b style="color:var(--green)">${money(inc)}</b></div><div class="rep-line"><span>Потрачено</span><b style="color:var(--brick)">${money(exp)}</b></div><div class="rep-line"><span>Остаток</span><b>${money(inc-exp)}</b></div>`;
+  el.querySelectorAll("[data-hp]").forEach(b=>b.onclick=()=>{homePeriod=b.dataset.hp;renderHomeSummary();});
+}
+
+/* ---------- месячная сверка кошельков ---------- */
+function curMonthKey(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");}
+function maybeReview(){if(!state.jars.length)return;if(state.lastReview===curMonthKey())return;if(overlay.classList.contains("open"))return;openReview();}
+function openReview(){openDetail=null;
+  const rows=state.jars.map(j=>`<div class="rev-row"><div class="rev-name"><div class="dn">${esc(j.name)}</div><div class="dist-sub">${placeText(j)} · в приложении ${money(j.balance)}</div></div><input class="dist-inp rev-inp" data-jid="${j.id}" inputmode="decimal" value="${j.balance}"></div>`).join("");
+  openModal(`<h3>Сверка кошельков 🧮</h3><p class="msub">Проверьте, сколько реально денег в каждой копилке. Если всё сходится — «Всё верно». Если есть недостача или излишек — впишите фактическую сумму, расхождение запишется как корректировка.</p>
+    ${rows}
+    <div class="modal-actions"><button class="btn ghost" id="rev_ok">Всё верно</button><button class="btn primary" id="rev_save">Сохранить</button></div>`);
+  document.getElementById("rev_ok").onclick=()=>{state.lastReview=curMonthKey();save();renderAll();closeModal();toast("Сверка подтверждена ✓");};
+  document.getElementById("rev_save").onclick=()=>{let changed=0;modalEl.querySelectorAll(".rev-inp").forEach(inp=>{const j=state.jars.find(x=>x.id===inp.dataset.jid);if(!j)return;const actual=parseAmt(inp.value);if(!isFinite(actual))return;const diff=Math.round((actual-j.balance)*100)/100;if(diff!==0){j.history.push({id:uid(),type:diff>0?"deposit":"withdraw",amount:Math.abs(diff),date:todayISO(),note:"сверка (корректировка)"});j.balance=actual;changed++;}});state.lastReview=curMonthKey();renderAll();closeModal();toast(changed?`Скорректировано копилок: ${changed}`:"Сверка сохранена ✓");};
+}
+
 applyTheme(); renderAll(); initConverter();
 (async()=>{
   try{if("indexedDB" in window){_db=await idbOpen();const saved=await idbGet("state");if(saved){state=normalize(saved);applyTheme();renderAll();}else{idbSet("state",state);}}}catch(e){}
@@ -973,7 +1061,9 @@ applyTheme(); renderAll(); initConverter();
   cloudInit(); updateAccountUI();
   if(cloudOn){showAuthGate();firebase.auth().onAuthStateChanged(async(u)=>{if(u){user=u;updateAccountUI();hideAuthGate();await cloudLoad();}else{user=null;updateAccountUI();showAuthGate();}});}
   fetchRates(); fetchNews();
+  if(!cloudOn)maybeReview();
 })();
+document.getElementById("reviewBtn").addEventListener("click",openReview);
 </script>
 </body>
 </html>
